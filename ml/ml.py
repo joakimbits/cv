@@ -7,8 +7,8 @@ from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
 
 # ---- Image files you said you have (same folder as this script) ----
 IMG = {
-    "cover":              "system-identification.png",
-    "system_id":          "physical-modeling.png",
+    "cover":              "complex-systems.png",
+    "system_id":          "system-identification.png",
     "kalman_fusion":      "sensor-fusion.png",
     "motion_tracking":    "tracking.png",
     "regime_modes":       "transitioning.png",
