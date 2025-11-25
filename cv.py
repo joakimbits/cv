@@ -222,6 +222,23 @@ def add_experience(doc):
         "https://www.linkedin.com/in/joakimbits/details/experience/2387352724/multiple-media-viewer",
     )
 
+    # --- Quflow (2015–2020) ---
+    add_role_title(doc, "Quflow (2015–2020) – Founder / Principal Engineer, Dalby")
+
+    add_para(
+        doc,
+        "R&D in flow-driven acoustic actuation, real-time control and cross-disciplinary instrumentation, resulting in the "
+        "flow-controlled acoustic actuator patent (SE542440C2) and the Sound-Valve Speaker prototype."
+    )
+
+    add_artifact(
+        doc,
+        "Flow-controlled acoustic actuator & Sound-Valve Speaker – documentation",
+        "https://joakimbits.github.io/cv/audio/sound-valve-speaker.html",
+    )
+
+    add_tech(doc, "Python", "Acoustics", "Fluid Dynamics", "Control Systems", "Instrumentation")
+
     # --- Join (2011–2018) ---
     add_role_title(doc, "Join Business & Technology (2011–2018) – Systems Engineering Consultant, Lund")
     p = add_para(doc, "Delivered embedded control and measurement systems for ")
