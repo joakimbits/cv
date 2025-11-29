@@ -24,8 +24,7 @@ from docx.document import Document as DocxDocument
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, Cm, Mm, RGBColor
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
-
+from traits.api import HasTraits, List, Str, Property
 
 # ---- Branding / colors ----
 ACCENT_BLUE = RGBColor(0x00, 0x66, 0xB3)  # Additude headings
@@ -221,20 +220,38 @@ class StyledDocument:
 # =====================================================================
 
 
-class BaseCV(StyledDocument):
+def joined(items: list[str], sep=", ", final_sep=" & "):
+    n = len(items)
+    if n == 0:
+        return ""
+    if n == 1:
+        return items[0]
+    return sep.join(items[:-1]) + final_sep + items[-1]
+
+
+class BaseCV(StyledDocument, HasTraits):
     """Base CV corresponding to the compressed 2025-11-11 version."""
 
     # ----------------- Header --------------------------------------------
+
+    name = Str("Joakim Pettersson")
+    role = Str("Engineer")
+    level = Str("Senior")
+    specialities = List(Str,["Embedded", "Control Systems"])
+    industries = List(Str,["Automotive", "Energy", "eMobility"])
+    email = Str("joakim.pettersson@ict.eu")
+    mobile = Str("+46 708 29 99 74")
+    profile = Str("https://www.linkedin.com/in/joakimbits/")
 
     def add_header(self) -> None:
         # Name + subtitle in a tight block
         h = self.doc.add_paragraph()
         h.paragraph_format.space_after = Pt(0)
-        run1 = h.add_run("Joakim Pettersson\n")
+        run1 = h.add_run(f"{self.name}\n")
         run1.bold = True
         run1.font.size = Pt(18)
         run2 = h.add_run(
-            "Senior Embedded & Control Systems Engineer – Automotive, Energy & eMobility"
+            f"{self.level} {joined(self.specialities)} {self.role} – {joined(self.industries)}"
         )
         run2.font.size = Pt(12)
 
@@ -244,7 +261,7 @@ class BaseCV(StyledDocument):
         p.paragraph_format.space_after = Pt(6)
         p.add_run("📧 joakim.pettersson@ict.eu  📱 +46 708 29 99 74  🔗 ")
         # Hyperlink for LinkedIn
-        self.add_hyperlink(p,"linkedin.com/in/joakimbits","http://se.linkedin.com/in/joakimbits")
+        self.add_hyperlink(p, self.profile.rstrip('/').lstrip('https://www.'), self.profile)
 
     # ----------------- Profile -------------------------------------------
 
