@@ -24,7 +24,7 @@ from docx.document import Document as DocxDocument
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, Cm, Mm, RGBColor
-from traits.api import HasTraits, List, Str, Property
+from traits.api import HasTraits, List, Str, Tuple
 
 # ---- Branding / colors ----
 ACCENT_BLUE = RGBColor(0x00, 0x66, 0xB3)  # Additude headings
@@ -279,44 +279,28 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Core competence -----------------------------------
 
+    core_competence = List(Tuple(Str, List(Str)), [
+        ('Hardware Architectures',
+         "ARM • Intel x86 • PowerPC • Altera • Xilinx".split(' • ')),
+        ('Software & Systems',
+         ("Python • Linux • RTOS • C/C++ • CAN / J1939 / CANopen • BLE / Wi-Fi"
+          " • UDP / TCP/IP / MQTT • ML / AI • DevSecOps • EMC").split(' • ')),
+        ('Key expertise',
+         ("Real-time control • Connectivity • Sensor fusion • Algorithm integration"
+          " • Cloud & mobile interaction").split(' • ')),
+    ])
+
     def add_core_competence(self) -> None:
         self.add_section_heading("Core competence")
-
-        # Hardware Architectures
-        p = self.doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(2)
-        r = p.add_run("Hardware Architectures: ")
-        r.bold = True
-        p = self.doc.add_paragraph()
-        p.paragraph_format.left_indent = Cm(0.5)
-        p.add_run("ARM • Intel x86 • PowerPC • Altera • Xilinx")
-
-        # Software & Systems
-        p = self.doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(2)
-        r = p.add_run("Software & Systems: ")
-        r.bold = True
-        p = self.doc.add_paragraph()
-        p.paragraph_format.left_indent = Cm(0.5)
-        p.add_run(
-            "Python • Linux • RTOS • C/C++ • CAN / J1939 / CANopen • BLE / Wi-Fi"
-            " • UDP / TCP/IP / MQTT • ML / AI • DevSecOps • EMC"
-        )
-
-        # Key expertise
-        p = self.doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(4)
-        r = p.add_run("Key expertise: ")
-        r.bold = True
-        p = self.doc.add_paragraph()
-        p.paragraph_format.left_indent = Cm(0.5)
-        p.add_run(
-            "Real-time control • Connectivity • Sensor fusion • Algorithm integration"
-            " • Cloud & mobile interaction"
-        )
+        for category, items in self.core_competence:
+            p = self.doc.add_paragraph()
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(2)
+            r = p.add_run(f"{category}: ")
+            r.bold = True
+            p = self.doc.add_paragraph()
+            p.paragraph_format.left_indent = Cm(0.5)
+            p.add_run(" • ".join(items))
 
     # ----------------- Experience ----------------------------------------
 
