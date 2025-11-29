@@ -17,6 +17,7 @@ Styling is based on the original procedural cv.py:
 
 from __future__ import annotations
 
+import re
 from typing import Iterable
 
 import docx
@@ -304,198 +305,147 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Experience ----------------------------------------
 
+    Experience = Tuple(Tuple(Str, Str, Str), List(Str), List(Str), List(Tuple(Str, Str)))
+    experience = List(
+        Tuple(Str, List(Experience)),
+
+        [('Experience', [
+
+            (("Elonroad", 'https://www.elonroad.com/',
+              "(2025) – Software Developer, Lund"), [
+                "Collaborated with firmware, electronics and control engineers to improve real-time "
+                "performance and timing guarantees in motion-control and sensors for electric-road "
+                "charging infrastructure.",
+                "Introduced SI-unit scaling and coordinate consistency across software and hardware "
+                "to align motion tracking, communication and physical geometry.",
+                "Integrated the J1939 CAN framework to synchronize tracker, charger and vehicle "
+                "communication, and redesigned harness and switch placement to reduce EMI and "
+                "cabling cost.",
+            ], ["C", "Python", "CMake", "STM32CubeMX", "CANopen", "J1939"], [
+                ("J1939 signaling in heavy vehicles",
+                 "https://www.linkedin.com/in/joakimbits/overlay/1758097448773/single-media-viewer"),
+            ]),
+
+            (("Sandvine / Dover / Assa Abloy / deWiz / Blodtrycksdoktorn / ESS", "",
+              "(–2024) – Dependable systems engineer"), [
+                 "Other assignments within telecom and sensors, enabling reliable signalling and "
+                 "automated test/CI.",
+            ], [], []),
+
+            (("SiB Solutions", 'https://www.sibsolutions.com/',
+              "(2022–2023) – Technical Lead, AI Camera Systems"), [
+                "Re-engineered AI/ML pipeline on EdgeTPU for small-object detection; automated "
+                "deterministic model training and CI testing.",
+            ], ["TensorFlow", "Python", "Docker", "Git"], [
+                ("Detect objects in objects (2023)",
+                 "https://www.linkedin.com/in/joakimbits/details/experience/1713969601372/single-media-viewer"),
+            ]),
+
+            (("MyFC",'https://fkg.se/volymproduktion-nasta-for-fuel-cell-technology-sweden/',
+              "(2022) – Senior Embedded Developer – Fuel-Cell Electronics"), [
+                "Implemented synchronous ADC sampling and cell-group self-identification logic for "
+                "safe and stable fuel-cell stack control.",
+                "Contributed to EMC- and thermally-informed layout decisions, improving measurement "
+                "reliability.",
+            ], ["C", "FreeRTOS", "Python", "Altium", "KiCad"], [
+            ]),
+
+            (("Join Business & Technology",'https://www.join.se/',
+              "(2011–2018) – Systems Engineering Consultant, Lund"), [
+                "Delivered embedded control and measurement systems for "
+                "[Orbital Systems](https://www.orbital-systems.se/), "
+                "[Baxter](https://www.baxter.se/), "
+                "[Sensefarm](https://www.sensefarm.com/), "
+                "[Luda.farm](https://www.luda.farm/product/luda-fence/), "
+                "[ETAS](https://www.etas.com/) and "
+                "[Swegon](https://www.swegon.com/)",
+            ], ["Micropython", "C/C++", "LabVIEW", "Make", "Git", "Excel automation"], [
+                ("Fluid Test Bench (2014)",
+                 "https://www.linkedin.com/in/joakimbits/overlay/experience/266729404/multiple-media-viewer/"
+                 "?treasuryMediaId=1717417923021"),
+                ("SE542440C2 – Sound valve speaker for regulating pressure (2020)",
+                 "https://joakimbits.github.io/cv/audio/sound-valve-speaker.html"),
+            ]),
+
+            (("Ericsson Group", 'https://www.ericsson.com/en/about-us',
+              "(2000–2010) – Senior Systems Engineer, Lund / Stockholm / Montréal"), [
+                "Designed, simulated and verified Bluetooth radios and ASIC interfaces, then advanced "
+                "from ad-hoc network performance (Bluetooth, Wi-Fi) through cellular performance "
+                "(2G/3G) to product-level performance such as 911 location latency.",
+                "Collaborated with global design, compliance and manufacturing teams to stabilise "
+                "system behaviour.",
+            ], ["C", "C++", "Python", "LabVIEW", "VHDL", "Matlab", "RF design", "Bluetooth", "GSM/GPRS",
+                "Java", "Jython", "Excel", "Project", "Jira"], [
+                ("Bluetooth Programmable Logic Device (2002)",
+                 "https://www.linkedin.com/in/joakimbits/details/experience/1717428026690/single-media-viewer"),
+                ("First 911-certified advanced camera phone (2008)",
+                 "https://www.linkedin.com/in/joakimbits/details/experience/1717421728587/single-media-viewer"),
+            ]),
+
+            (("Volvo Technological Development", 'https://www.volvogroup.com/en/about-us.html',
+              "(1997–2000) – Research Engineer, Göteborg"),[
+                "Early work in algorithmic evaluation of [driving comfort]() and energy storage laid "
+                "foundations for later e-mobility drivetrain design.",
+            ], ["C", "Matlab", "LabVIEW", "AI/ML", "Sensor fusion", "Vehicle dynamics"], [
+                ("Quality assurance of driver comfort for automatic transmissions (2000)",
+                 "https://www.linkedin.com/in/joakimbits/details/experience/142498903/multiple-media-viewer"
+                 "?treasuryMediaId=1717429329020"),
+                ("Hydrogen storage alternatives (1999)",
+                 "https://www.linkedin.com/in/joakimbits/details/experience/142498903/multiple-media-viewer?"
+                 "treasuryMediaId=1717429329019"),
+             ])]),
+
+         ("Education & research", [
+
+             (("Ph.D. studies in Applied Solid-State Physics – Chalmers University of Technology, Gothenburg",
+              'http://www.chalmers.se/mc2/EN/laboratories/quantum-device-physics/research/experimental-mesoscopic',
+              "(1992–1996, unexamined)"), [
+                 "Conducted doctoral research on nano-fabrication, quantum waveguides and "
+                 "single-electron transistors within the [Low-temperature Physics group]().",
+             ], [], [
+                 ("Conductance oscillations in quantum dots, Phys. Rev. B / Physica B (1994–1996)",
+                  'https://iopscience.iop.org/article/10.1088/0953-8984/7/19/007'),
+                 ("Extending the high-frequency limit of a single-electron transistor, Phys. Rev. B (1996)",
+                  'https://www.researchgate.net/publication/13306616_'
+                  'Extending_the_high-frequency_limit_of_a_single-electron_transistor_by_on-chip_impedance_transformation'),
+                 ("Submicron air-bridge interconnection process, J. Vac. Sci. Technol. B (1997)",
+                  'https://www.researchgate.net/publication/249510567_'
+                  'Submicron_air-bridge_interconnection_process_for_complex_gate_geometries'),
+             ]),
+
+            (("M.Sc. Engineering Physics – Chalmers University of Technology, Gothenburg",
+              'https://www.gu.se/en/study-gothenburg/physics-masters-programme-n2phy',
+              "(1986–1992)"), [
+                 "Thesis on [nanofabrication]() with studies spanning mathematics, physics, chemistry and medicine.",
+             ], [], []),
+    ])])
+
+    LINK = re.compile(r"\[([^\]]*)\]\(([^)]*)\)")  # [text](url)
+
     def add_experience(self) -> None:
-        self.add_section_heading("Experience")
+        for heading, experience in self.experience:
+            self.add_section_heading(heading)
+            for (company, company_url, role), bullets, technologies, artifacts in experience:
+                self.add_company_role_title(company, company_url, role)
+                for bullet in bullets:
+                    i = 0
+                    for m in self.LINK.finditer(bullet):
+                        if i:
+                            p.add_run(bullet[i:m.start()])
+                        else:
+                            p = self.add_para(bullet[0:m.start()])
 
-        # --- Elonroad (2025) ---
-        self.add_company_role_title(
-            "Elonroad", 'https://www.elonroad.com/',
-            "(2025) – Software Developer, Lund")
-        self.add_bullet(
-            "Collaborated with firmware, electronics and control engineers to improve real-time "
-            "performance and timing guarantees in motion-control and sensors for electric-road "
-            "charging infrastructure."
-        )
-        self.add_bullet(
-            "Introduced SI-unit scaling and coordinate consistency across software and hardware "
-            "to align motion tracking, communication and physical geometry."
-        )
-        self.add_bullet(
-            "Integrated the J1939 CAN framework to synchronize tracker, charger and vehicle "
-            "communication, and redesigned harness and switch placement to reduce EMI and "
-            "cabling cost."
-        )
-        self.add_tech("C", "Python", "CMake", "STM32CubeMX", "CANopen", "J1939")
-        self.add_artifact(
-            "J1939 signaling in heavy vehicles",
-            "https://www.linkedin.com/in/joakimbits/overlay/1758097448773/single-media-viewer",
-        )
+                        self.add_hyperlink(p, *m.groups())
+                        i = m.end()
 
-        # --- Sandvine / Dover / Assa Abloy / deWiz / Blodtrycksdoktorn / ESS (–2024) ---
-        self.add_company_role_title(
-            "Sandvine / Dover / Assa Abloy / deWiz / Blodtrycksdoktorn / ESS", None,
-            "(–2024) – Dependable systems engineer"
-        )
-        self.add_bullet(
-            "Other assignments within telecom and sensors, enabling reliable signalling and "
-            "automated test/CI."
-        )
+                    if i:
+                        p.add_run(bullet[i:])
+                    else:
+                        self.add_bullet(bullet)
 
-        # --- SiB Solutions (2022–2023) ---
-        self.add_company_role_title(
-            "SiB Solutions", 'https://www.sibsolutions.com/',
-            "(2022–2023) – Technical Lead, AI Camera Systems")
-        self.add_bullet(
-            "Re-engineered AI/ML pipeline on EdgeTPU for small-object detection; automated "
-            "deterministic model training and CI testing."
-        )
-        self.add_tech("TensorFlow", "Python", "Docker", "Git")
-        self.add_artifact(
-            "Detect objects in objects (2023)",
-            "https://www.linkedin.com/in/joakimbits/details/experience/1713969601372/single-media-viewer",
-        )
-
-        # --- MyFC (2022) ---
-        self.add_company_role_title(
-            "MyFC",'https://fkg.se/volymproduktion-nasta-for-fuel-cell-technology-sweden/',
-            "(2022) – Senior Embedded Developer – Fuel-Cell Electronics")
-        self.add_bullet(
-            "Implemented synchronous ADC sampling and cell-group self-identification logic for "
-            "safe and stable fuel-cell stack control."
-        )
-        self.add_bullet(
-            "Contributed to EMC- and thermally-informed layout decisions, improving measurement "
-            "reliability."
-        )
-        self.add_tech("C", "FreeRTOS", "Python", "Altium", "KiCad")
-
-        # --- Join Business & Technology (2011–2018) ---
-        self.add_company_role_title(
-            "Join Business & Technology",'https://www.join.se/',
-            "(2011–2018) – Systems Engineering Consultant, Lund"
-        )
-        p = self.add_para("Delivered embedded control and measurement systems for ")
-        self.add_hyperlink(p, "Orbital Systems", "https://www.orbital-systems.se/");
-        p.add_run(", ")
-        self.add_hyperlink(p, "Baxter", "https://www.baxter.se/");
-        p.add_run(", ")
-        self.add_hyperlink(p, "Sensefarm", "https://www.sensefarm.com/");
-        p.add_run(", ")
-        self.add_hyperlink(p, "Luda.farm", "https://www.luda.farm/product/luda-fence/");
-        p.add_run(", ")
-        self.add_hyperlink(p, "ETAS", "https://www.etas.com/");
-        p.add_run(" and ")
-        self.add_hyperlink(p, "Swegon", "https://www.swegon.com/");
-        p.add_run(".")
-        self.add_tech("Micropython", "C/C++", "LabVIEW", "Make", "Git", "Excel automation"
-                      ).paragraph_format.keep_with_next = True
-        self.add_artifact(
-            "Fluid Test Bench (2014)",
-            "https://www.linkedin.com/in/joakimbits/overlay/experience/266729404/multiple-media-viewer/?treasuryMediaId=1717417923021",
-        ).paragraph_format.keep_with_next = True
-        self.add_artifact(
-            "SE542440C2 – Sound valve speaker for regulating pressure (2020)",
-            "https://joakimbits.github.io/cv/audio/sound-valve-speaker.html",
-        )
-
-        # --- Ericsson Group (2000–2010) ---
-        self.add_company_role_title(
-            "Ericsson Group", 'https://www.ericsson.com/en/about-us',
-            "(2000–2010) – Senior Systems Engineer, Lund / Stockholm / Montréal"
-        )
-        self.add_bullet(
-            "Designed, simulated and verified Bluetooth radios and ASIC interfaces, then advanced "
-            "from ad-hoc network performance (Bluetooth, Wi-Fi) through cellular performance "
-            "(2G/3G) to product-level performance such as 911 location latency."
-        )
-        self.add_bullet(
-            "Collaborated with global design, compliance and manufacturing teams to stabilise "
-            "system behaviour."
-        )
-        self.add_tech(
-            "C",
-            "C++",
-            "Python",
-            "LabVIEW",
-            "VHDL",
-            "Matlab",
-            "RF design",
-            "Bluetooth",
-            "GSM/GPRS",
-            "Java",
-            "Jython",
-            "Excel",
-            "Project",
-            "Jira",
-        )
-        self.add_artifact(
-            "Bluetooth Programmable Logic Device (2002)",
-            "https://www.linkedin.com/in/joakimbits/details/experience/1717428026690/single-media-viewer",
-        )
-        self.add_artifact(
-            "First 911-certified advanced camera phone (2008)",
-            "https://www.linkedin.com/in/joakimbits/details/experience/1717421728587/single-media-viewer",
-        )
-
-        # --- Volvo Technological Development (1997–2000) ---
-        self.add_company_role_title(
-            "Volvo Technological Development", 'https://www.volvogroup.com/en/about-us.html',
-            "(1997–2000) – Research Engineer, Göteborg"
-        )
-        self.add_bullet(
-            "Early work in algorithmic evaluation of driving comfort and energy storage laid "
-            "foundations for later e-mobility drivetrain design."
-        )
-        self.add_tech("C", "Matlab", "LabVIEW", "AI/ML", "Sensor fusion", "Vehicle dynamics")
-        self.add_artifact(
-            "Quality assurance of driver comfort for automatic transmissions (2000)",
-            "https://www.linkedin.com/in/joakimbits/details/experience/142498903/multiple-media-viewer?treasuryMediaId=1717429329020",
-        )
-        self.add_artifact(
-            "Hydrogen storage alternatives (1999)",
-            "https://www.linkedin.com/in/joakimbits/details/experience/142498903/multiple-media-viewer?treasuryMediaId=1717429329019",
-        )
-
-    # ----------------- Education & research -------------------------------
-
-    def add_education_research(self) -> None:
-        self.add_section_heading("Education & research")
-
-        # Ph.D. studies
-        self.add_company_role_title(
-            "Ph.D. studies in Applied Solid-State Physics – Chalmers University of Technology, Gothenburg",
-            'http://www.chalmers.se/mc2/EN/laboratories/quantum-device-physics/research/experimental-mesoscopic',
-            "(1992–1996, unexamined)"
-        )
-        self.add_para(
-            "Conducted doctoral research on nano-fabrication, quantum waveguides and "
-            "single-electron transistors within the Low-temperature Physics group."
-        )
-        # NOTE: URLs for publications are placeholders here; adjust to your actual pages if needed.
-        self.add_artifact(
-            "Conductance oscillations in quantum dots, Phys. Rev. B / Physica B (1994–1996)",
-            "https://iopscience.iop.org/article/10.1088/0953-8984/7/19/007",
-        )
-        self.add_artifact(
-            "Extending the high-frequency limit of a single-electron transistor, Phys. Rev. B (1996)",
-            "https://www.researchgate.net/publication/13306616_Extending_the_high-frequency_limit_of_a_single-electron_transistor_by_on-chip_impedance_transformation",
-        )
-        self.add_artifact(
-            "Submicron air-bridge interconnection process for complex gate geometries, "
-            "J. Vac. Sci. Technol. B (1997)",
-            "https://www.researchgate.net/publication/249510567_Submicron_air-bridge_interconnection_process_for_complex_gate_geometries",
-        )
-
-        # M.Sc.
-        self.add_company_role_title(
-            "M.Sc. Engineering Physics – Chalmers University of Technology, Gothenburg",
-            'https://www.gu.se/en/study-gothenburg/physics-masters-programme-n2phy',
-            "(1986–1992)"
-        )
-        self.add_para(
-            "Thesis on nanofabrication with studies spanning mathematics, physics, chemistry "
-            "and medicine."
-        )
+                self.add_tech(*technologies)
+                for artifact, url in artifacts:
+                    self.add_artifact(artifact, url)
 
     # ----------------- Working approach & personal ------------------------
 
@@ -532,7 +482,6 @@ class BaseCV(StyledDocument, HasTraits):
         self.add_profile()
         self.add_core_competence()
         self.add_experience()
-        self.add_education_research()
         self.add_working_approach_and_personal()
         self.save(filename)
 
