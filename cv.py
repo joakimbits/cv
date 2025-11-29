@@ -242,7 +242,7 @@ class BaseCV(StyledDocument):
         p = self.doc.add_paragraph()
         p.paragraph_format.space_before = Pt(0)
         p.paragraph_format.space_after = Pt(6)
-        p.add_run("📧 joakim.pettersson@additude.se  📱 +46 708 29 99 74  🔗 ")
+        p.add_run("📧 joakim.pettersson@ict.eu  📱 +46 708 29 99 74  🔗 ")
         # Hyperlink for LinkedIn
         self.add_hyperlink(p,"linkedin.com/in/joakimbits","http://se.linkedin.com/in/joakimbits")
 
@@ -558,7 +558,7 @@ class BaseCoverLetter(StyledDocument):
             "Joakim Pettersson\n"
             "Dalby, Sweden\n"
             "Phone: +46 708 29 99 74\n"
-            "Email: joakim.pettersson@additude.se\n"
+            "Email: joakim.pettersson@ict.eu\n"
             "Consultant via ICT Additude AB\n"
         )
         r.font.size = Pt(10)
