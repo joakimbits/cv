@@ -241,7 +241,7 @@ class BaseCV(StyledDocument, HasTraits):
     industries = List(Str,["Automotive", "Energy", "eMobility"])
     email = Str("joakim.pettersson@ict.eu")
     mobile = Str("+46 708 29 99 74")
-    profile = Str("https://www.linkedin.com/in/joakimbits/")
+    linkedin_profile = Str("https://www.linkedin.com/in/joakimbits/")
 
     def add_header(self) -> None:
         # Name + subtitle in a tight block
@@ -261,25 +261,21 @@ class BaseCV(StyledDocument, HasTraits):
         p.paragraph_format.space_after = Pt(6)
         p.add_run("📧 joakim.pettersson@ict.eu  📱 +46 708 29 99 74  🔗 ")
         # Hyperlink for LinkedIn
-        self.add_hyperlink(p, self.profile.rstrip('/').lstrip('https://www.'), self.profile)
+        self.add_hyperlink(p, self.linkedin_profile.rstrip('/').lstrip('https://www.'), self.linkedin_profile)
 
     # ----------------- Profile -------------------------------------------
 
+    profile = List(Str, [
+        "Combines hands-on embedded C/C++ and Python development with deep understanding "
+        "of real-time communication, sensor integration and low-power control.",
+        "Skilled in bridging hardware and software domains to ensure reliable, reproducible "
+        "system behaviour from prototype to production.",
+    ])
+
     def add_profile(self) -> None:
         self.add_section_heading("Profile")
-
-        # NOTE: First original bullet
-        # "Embedded software developer with 14+ years..."
-        # is intentionally removed here to keep BaseCV less branch-specific.
-
-        self.add_bullet(
-            "Combines hands-on embedded C/C++ and Python development with deep understanding "
-            "of real-time communication, sensor integration and low-power control."
-        )
-        self.add_bullet(
-            "Skilled in bridging hardware and software domains to ensure reliable, reproducible "
-            "system behaviour from prototype to production."
-        )
+        for bullet in self.profile:
+            self.add_bullet(bullet)
 
     # ----------------- Core competence -----------------------------------
 
