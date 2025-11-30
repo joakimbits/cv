@@ -449,31 +449,26 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Working approach & personal ------------------------
 
-    def add_working_approach_and_personal(self) -> None:
-        self.add_section_heading("Mentorship & collaboration")
-        self.add_bullet(
-            "Collaborative, analytical and dependable in cross-disciplinary environments."
-        )
-        self.add_bullet(
-            "Prefers small reproducible setups, clear interfaces and measurement-driven validation."
-        )
-        self.add_bullet(
-            "Bridges hardware, embedded and data teams so decisions remain explainable "
-            "across domains."
-        )
+    working_approach_and_personal = List(
+        Tuple(Str, List(Str)),[
+            ('Mentorship & collaboration', [
+                "Collaborative, analytical and dependable in cross-disciplinary environments.",
+                "Prefers small reproducible setups, clear interfaces and measurement-driven validation.",
+                "Bridges hardware, embedded and data teams so decisions remain explainable across domains.",
+            ]),
+            ('Personal', [
+                "Based in southern Sweden and living an RnDIY life in Dalby. Father of three daughters "
+                "(12, 18 and 23).",
+                "Enjoys hands-on projects, sailing, cycling a Quattrovelo, and playing string instruments.",
+                "Values craftsmanship, sustainability and curiosity — the same principles that guide "
+                "professional work.",
+            ])])
 
-        self.add_section_heading("Personal")
-        self.add_bullet(
-            "Based in southern Sweden and living an RnDIY life in Dalby. Father of three daughters "
-            "(12, 18 and 23)."
-        )
-        self.add_bullet(
-            "Enjoys hands-on projects, sailing, cycling a Quattrovelo, and playing string instruments."
-        )
-        self.add_bullet(
-            "Values craftsmanship, sustainability and curiosity — the same principles that guide "
-            "professional work."
-        )
+    def add_working_approach_and_personal(self) -> None:
+        for heading, how in self.working_approach_and_personal:
+            self.add_section_heading(heading)
+            for bullet in how:
+                self.add_bullet(bullet)
 
     # ----------------- Top-level build -----------------------------------
 
