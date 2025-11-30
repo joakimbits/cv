@@ -18,7 +18,6 @@ Styling is based on the original procedural cv.py:
 from __future__ import annotations
 
 import re
-from typing import Iterable
 
 import docx
 from docx.document import Document as DocxDocument
