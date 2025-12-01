@@ -25,6 +25,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, Cm, Mm, RGBColor
 from traits.api import HasTraits, List, Str, Tuple
+from traitsui.api import View, Item
 
 # ---- Branding / colors ----
 ACCENT_BLUE = RGBColor(0x00, 0x66, 0xB3)  # Additude headings
@@ -479,6 +480,7 @@ class BaseCV(StyledDocument, HasTraits):
         self.add_experience()
         self.add_working_approach_and_personal()
         self.save(filename)
+        print(self.__class__.__name__, "saved to", filename)
 
 
 # =====================================================================
@@ -510,6 +512,19 @@ class BaseCoverLetter(BaseCV):
     hook = Str(
         "I live in Dalby and can be available on short notice. "
         "I would welcome the opportunity to discuss how my background could support your team.")
+
+    traits_view = View(
+        Item("receiver"),
+        Item("role"),
+        Item("org"),
+        Item("work"),
+        Item("motivation"),
+        Item("arguments"),
+        Item("hook"),
+        title=f"Cover Letter",
+        resizable=True,
+        buttons=["OK"],
+    )
 
     def add_contact_block(self) -> None:
         p = self.doc.add_paragraph()
@@ -559,8 +574,24 @@ class BaseCoverLetter(BaseCV):
         self.add_body()
         self.add_closing()
         self.save(filename)
+        print(self.__class__.__name__, "saved to", filename)
+
+
+cv = BaseCV()
+cl = BaseCoverLetter()
+def edit():
+    try:
+        from pyface.api import GUI
+    except ImportError:
+        raise ImportError("pip install pyside6<6.6  # Only available in Python <3.11")
+
+    cl.edit_traits()
+    GUI().start_event_loop()
 
 
 if __name__ == "__main__":
-    BaseCV().build("Joakim_Pettersson_CV.docx")
-    BaseCoverLetter().build("Joakim_Pettersson_letter.docx")
+    import fire
+
+    fire.Fire(dict(edit=edit))
+    cv.build("Joakim_Pettersson_CV.docx")
+    cl.build(f"Joakim_Pettersson-{cl.role}-{cl.org}.docx")
