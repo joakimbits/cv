@@ -109,14 +109,15 @@ class StyledDocument:
 
         return p
 
-    def add_para(self, text: str):
+    def add_para(self, text: str, space_before: int = 0, space_after: int = 2, left_indent: float = 0.5, right_indent: float = 0.):
         """
         Normal paragraph with tight rhythm (0 before, 2 after).
         """
         p = self.doc.add_paragraph(text)
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(2)
-        p.paragraph_format.left_indent = Cm(0.5)
+        p.paragraph_format.space_before = Pt(space_before)
+        p.paragraph_format.space_after = Pt(space_after)
+        p.paragraph_format.left_indent = Cm(left_indent)
+        p.paragraph_format.right_indent = Cm(right_indent)
         return p
 
     def add_bullet(self, text: str):
@@ -485,62 +486,68 @@ class BaseCV(StyledDocument, HasTraits):
 # =====================================================================
 
 
-class BaseCoverLetter(StyledDocument):
+class BaseCoverLetter(BaseCV):
     """Generic, neutral cover letter structure (content intentionally broad)."""
-    role = "Engineer"
-    org  = "your organisation"
+    role = Str("Engineer")
+    org  = Str("your organisation")
+    receiver = Str("the hiring committee")
+    home = Str("Dalby, Sweden")
+    working_as = Str("Consultant via ICT Additude AB")
+    work = Str("instrumentation, embedded software and complex systems")
+    motivation = Str(
+        "more than two decades of experience in measurement, integration and troubleshooting "
+        "across research, automotive and industrial domains")
+    arguments = List(Str, [
+        "Throughout my career I have worked close to both hardware and software, bridging "
+        "electronics, motion systems, data acquisition and automation with Python- and "
+        "C/C++-based tooling. I enjoy stabilising complex setups, making behaviour observable "
+        "and building small tools that help others understand and trust the systems they use.",
+        "I am comfortable collaborating with cross-disciplinary teams, from field engineers "
+        "and operators to researchers and product managers. I value clear communication, "
+        "measurement-driven validation and a pragmatic approach to improving systems without "
+        "losing sight of long-term maintainability.",
+    ])
+    hook = Str(
+        "I live in Dalby and can be available on short notice. "
+        "I would welcome the opportunity to discuss how my background could support your team.")
 
     def add_contact_block(self) -> None:
         p = self.doc.add_paragraph()
         p.paragraph_format.space_before = Pt(0)
         p.paragraph_format.space_after = Pt(6)
         r = p.add_run(
-            "Joakim Pettersson\n"
-            "Dalby, Sweden\n"
-            "Phone: +46 708 29 99 74\n"
-            "Email: joakim.pettersson@ict.eu\n"
-            "Consultant via ICT Additude AB\n"
+            f"{self.name}\n"
+            f"{self.home}\n"
+            f"Phone: {self.mobile}\n"
+            f"Email: {self.email}\n"
+            f"{self.working_as}\n"
         )
         r.font.size = Pt(10)
 
     def add_opening(self) -> None:
         p = self.doc.add_paragraph()
-        p.add_run(f"To the hiring committee,\n{self.org}")
+        p.add_run(f"To {self.receiver},\n{self.org}")
+        self.doc.add_paragraph()
         heading = self.doc.add_paragraph()
         run = heading.add_run(f"Application for {self.role}")
         run.bold = True
         run.font.size = Pt(12)
 
     def add_intro(self) -> None:
-        self.add_para(
+        self.doc.add_paragraph(
             f"I am writing to express my interest in supporting {self.org} as {self.role} "
-            "working with instrumentation, embedded software and complex systems. With more than "
-            "two decades of experience in measurement, integration and troubleshooting across "
-            "research, automotive and industrial domains, I believe I can contribute from day one."
+            f"working with {self.work}. With {self.motivation}, I believe I can contribute from day one:"
         )
 
     def add_body(self) -> None:
-        self.add_para(
-            "Throughout my career I have worked close to both hardware and software, bridging "
-            "electronics, motion systems, data acquisition and automation with Python- and "
-            "C/C++-based tooling. I enjoy stabilising complex setups, making behaviour observable "
-            "and building small tools that help others understand and trust the systems they use."
-        )
-        self.add_para(
-            "I am comfortable collaborating with cross-disciplinary teams, from field engineers "
-            "and operators to researchers and product managers. I value clear communication, "
-            "measurement-driven validation and a pragmatic approach to improving systems without "
-            "losing sight of long-term maintainability."
-        )
+        for argument in self.arguments:
+            self.add_para(argument, 18, 18, 1.5, 1.5)
 
     def add_closing(self) -> None:
-        self.add_para(
-            "I live in Dalby and can be available on short notice. I would welcome the opportunity "
-            "to discuss how my background could support your team."
-        )
+        self.doc.add_paragraph(self.hook)
         p = self.doc.add_paragraph()
         p.add_run("Kind regards,\n")
-        p.add_run("Joakim Pettersson").bold = True
+        p.add_run(self.name).bold = True
 
     def build(
         self,
