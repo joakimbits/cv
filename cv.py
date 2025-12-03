@@ -24,14 +24,14 @@ from docx.document import Document as DocxDocument
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, Cm, Mm, RGBColor
-from traits.api import HasTraits, List, Str, Tuple
+from docx.enum.text import WD_BREAK
+from docx.enum.style import WD_STYLE_TYPE
+from traits.api import HasTraits, File, List, Str, Tuple
 from traitsui.api import View, Item
 
 # ---- Branding / colors ----
 ACCENT_BLUE = RGBColor(0x00, 0x66, 0xB3)  # Additude headings
 LINK_BLUE_HEX = "004A99"                  # Bold dark blue for hyperlinks (no underline)
-FILENAME_DATE = "2025-11-11"
-
 
 # =====================================================================
 # StyledDocument – wrapper around python-docx.Document
@@ -242,7 +242,7 @@ class BaseCV(StyledDocument, HasTraits):
     specialities = List(Str,["Embedded", "Control Systems"])
     industries = List(Str,["Automotive", "Energy", "eMobility"])
     email = Str("joakim.pettersson@ict.eu")
-    mobile = Str("+46 708 29 99 74")
+    phone = Str("+46 708 29 99 74")
     linkedin_profile = Str("https://www.linkedin.com/in/joakimbits/")
 
     def add_header(self) -> None:
@@ -491,10 +491,10 @@ class BaseCV(StyledDocument, HasTraits):
 class BaseCoverLetter(BaseCV):
     """Generic, neutral cover letter structure (content intentionally broad)."""
     role = Str("Engineer")
-    org  = Str("your organisation")
-    receiver = Str("the hiring committee")
-    home = Str("Dalby, Sweden")
-    working_as = Str("Consultant via ICT Additude AB")
+    organization  = Str("your organisation")
+    to = Str("the hiring committee")
+    location = Str("Dalby, Sweden")
+    engagement = Str("Consultant via ICT Additude AB")
     work = Str("instrumentation, embedded software and complex systems")
     motivation = Str(
         "more than two decades of experience in measurement, integration and troubleshooting "
@@ -526,31 +526,60 @@ class BaseCoverLetter(BaseCV):
         buttons=["OK"],
     )
 
+    def add_field(self, paragraph, style_name: str, text: str, eols: int = 1):
+        # 1) create a character style (always new as you wanted)
+        style = self.doc.styles.add_style(style_name, WD_STYLE_TYPE.CHARACTER)
+
+        # 2) add run and *force* rStyle onto the run's rPr so Pandoc keeps it
+        run = paragraph.add_run(text)
+        r = run._r
+        rPr = r.get_or_add_rPr()
+        rStyle = OxmlElement('w:rStyle')
+        rStyle.set(qn('w:val'), style_name)
+        # ensure rStyle exists even if no visible font deltas
+        rPr.insert(0, rStyle)
+
+        # 3) wrap with SDT tagged the same
+        sdt = OxmlElement('w:sdt')
+        pr = OxmlElement('w:sdtPr')
+        tag = OxmlElement('w:tag');
+        tag.set(qn('w:val'), style_name)
+        pr.append(tag)
+        pr.append(OxmlElement('w:text'))
+        sdt.append(pr)
+        content = OxmlElement('w:sdtContent')
+        r.addprevious(sdt)
+        content.append(r)
+        sdt.append(content)
+        for i in range(eols):
+            run.add_break(WD_BREAK.LINE)
+
+        return run
+
     def add_contact_block(self) -> None:
         p = self.doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after = Pt(6)
-        r = p.add_run(
-            f"{self.name}\n"
-            f"{self.home}\n"
-            f"Phone: {self.mobile}\n"
-            f"Email: {self.email}\n"
-            f"{self.working_as}\n"
-        )
-        r.font.size = Pt(10)
+
+        r = self.add_field(p, "name", self.name)
+        r = self.add_field(p, "location", self.location)
+        r = self.add_field(p, "phone", self.phone)
+        r = self.add_field(p, "email", self.email)
+        r = self.add_field(p, "engagement", self.engagement, 2)
+
+        r = self.add_field(p, "to", f"{self.to},")
+        r = self.add_field(p, "organisation", self.organization, 2)
+        p.add_run("\u200B")  # keep this at the end of the paragraph so that pandoc can generate <br> after it also
 
     def add_opening(self) -> None:
         p = self.doc.add_paragraph()
-        p.add_run(f"To {self.receiver},\n{self.org}")
-        self.doc.add_paragraph()
-        heading = self.doc.add_paragraph()
-        run = heading.add_run(f"Application for {self.role}")
-        run.bold = True
-        run.font.size = Pt(12)
+        run1 = p.add_run(f"Application for ")
+        run2 = self.add_field(p, "role", self.role)
+        for run in run1, run2:
+            run.bold = True
+            run.font.size = Pt(12)
 
     def add_intro(self) -> None:
         self.doc.add_paragraph(
-            f"I am writing to express my interest in supporting {self.org} as {self.role} "
+            f"I am writing to express my interest in supporting {self.organization} as {self.role} "
             f"working with {self.work}. With {self.motivation}, I believe I can contribute from day one:"
         )
 
@@ -594,4 +623,4 @@ if __name__ == "__main__":
 
     fire.Fire(dict(edit=edit))
     cv.build("Joakim_Pettersson_CV.docx")
-    cl.build(f"Joakim_Pettersson-{cl.role}-{cl.org}.docx")
+    cl.build(f"Joakim_Pettersson-{cl.role}-{cl.organization}.docx")
