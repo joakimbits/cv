@@ -17,8 +17,7 @@ Styling is based on the original procedural cv.py:
 
 from __future__ import annotations
 
-import re
-
+import regex as re
 import docx
 from docx.document import Document as DocxDocument
 from docx.oxml import OxmlElement
@@ -26,7 +25,7 @@ from docx.oxml.ns import qn
 from docx.shared import Pt, Cm, Mm, RGBColor
 from docx.enum.text import WD_BREAK
 from docx.enum.style import WD_STYLE_TYPE
-from traits.api import HasTraits, File, List, Str, Tuple
+from traits.api import HasTraits, File, List, Str, Tuple, Instance, TraitError
 from traitsui.api import View, Item
 
 # ---- Branding / colors ----
@@ -70,17 +69,17 @@ class StyledDocument:
         *,
         level: int = 1,
         space_before: int = 18,
-        space_after: int = 2,
+        space_after: int = 12,
     ):
         """
         Add a colored heading using Word's heading styles.
 
         `text` is uppercased for visual consistency.
         """
-        h = self.doc.add_heading(text.upper(), level=level)
+        h = self.doc.add_heading(text, level=level)
         for r in h.runs:
             r.font.color.rgb = ACCENT_BLUE
-            r.bold = True
+
         h.paragraph_format.space_before = Pt(space_before)
         h.paragraph_format.space_after = Pt(space_after)
         h.paragraph_format.keep_with_next = True
@@ -275,7 +274,7 @@ class BaseCV(StyledDocument, HasTraits):
     ])
 
     def add_profile(self) -> None:
-        self.add_section_heading("Profile")
+        self.add_section_heading("PROFILE")
         for bullet in self.profile:
             self.add_bullet(bullet)
 
@@ -293,7 +292,7 @@ class BaseCV(StyledDocument, HasTraits):
     ])
 
     def add_core_competence(self) -> None:
-        self.add_section_heading("Core competence")
+        self.add_section_heading("CORE COMPETENCE")
         for category, items in self.core_competence:
             p = self.doc.add_paragraph()
             p.paragraph_format.space_before = Pt(0)
@@ -425,7 +424,7 @@ class BaseCV(StyledDocument, HasTraits):
 
     def add_experience(self) -> None:
         for heading, experience in self.experience:
-            self.add_section_heading(heading)
+            self.add_section_heading(heading.upper())
             for (company, company_url, role), bullets, technologies, artifacts in experience:
                 self.add_company_role_title(company, company_url, role)
                 for bullet in bullets:
@@ -467,7 +466,7 @@ class BaseCV(StyledDocument, HasTraits):
 
     def add_working_approach_and_personal(self) -> None:
         for heading, how in self.working_approach_and_personal:
-            self.add_section_heading(heading)
+            self.add_section_heading(heading.upper())
             for bullet in how:
                 self.add_bullet(bullet)
 
@@ -566,16 +565,11 @@ class BaseCoverLetter(BaseCV):
         r = self.add_field(p, "engagement", self.engagement, 2)
 
         r = self.add_field(p, "to", f"{self.to},")
-        r = self.add_field(p, "organisation", self.organization, 2)
-        p.add_run("\u200B")  # keep this at the end of the paragraph so that pandoc can generate <br> after it also
+        r = self.add_field(p, "organisation", self.organization)
 
     def add_opening(self) -> None:
-        p = self.doc.add_paragraph()
-        run1 = p.add_run(f"Application for ")
-        run2 = self.add_field(p, "role", self.role)
-        for run in run1, run2:
-            run.bold = True
-            run.font.size = Pt(12)
+        p = self.add_section_heading("Application for ")
+        self.add_field(p, "role", self.role, 0)
 
     def add_intro(self) -> None:
         self.doc.add_paragraph(
@@ -606,21 +600,113 @@ class BaseCoverLetter(BaseCV):
         print(self.__class__.__name__, "saved to", filename)
 
 
-cv = BaseCV()
-cl = BaseCoverLetter()
+CR = "(?: <br>)"
+LF = r"\n"
+EOL = f"{CR}? {LF}"
+SEP = rf"\s* {CR}? \s*"
+CHAR = r"[^>\n#]"
+TEXT = f"{CHAR}*"
+PHONE = "[+ ,0-9]*"
+EMAIL = "[A-Za-z0-9_.+-]+@[A-Za-z0-9.-]*"
+COMMA_EOL = f"\s* , \s* {EOL}"
+RECEIVER = f"(?: (?! {COMMA_EOL}) {CHAR})*"
+
+def spaceout(text: str) -> str:
+    return text.replace(" ", " \s+ ")
+
+def choice(name, *alternatives):
+    return f"\s* (?: (?P<{name}> {' | '.join(map(spaceout, alternatives))}) :? \s*)"
+
+def ask(name, pattern, *alternatives):
+    return f"(?: {choice(f'{name}_ask', *alternatives)}? (?P<{name}> {pattern}) {SEP})"
+
+FILE = rf"""(?mxs)\A
+(?P<contact_block> 
+  {ask('name', TEXT, 'Full name', 'Name')}?
+  {ask('location', TEXT, 'Home address', 'Address')}?
+  {ask('phone', PHONE, 'Phone', 'Mobile')}?
+  {ask('email', EMAIL, 'Email')}?
+  {ask('engagement', TEXT, 'Affiliation', 'Title')}?
+  {EOL}*
+  (?: {ask('receiver', RECEIVER, "To")} {COMMA_EOL})?
+  {ask('org', TEXT, 'Organization')}?
+  {EOL}*)
+(?P<opening>
+  (^ \#+)? {ask('role', TEXT, 'Application for ')})?
+(?P<intro> (?:
+  working \s+ with \s+ (?P<work> [^\.]*) \. |
+  With \s+ (?P<motivation> (?: (?! , \s+ (?: I | we) \s) .)*) , \s+ (?P<group> I | we) \s+ |
+  (?P=org) | (?P=role) |
+  {CHAR})+ {EOL})
+(?P<body> (?:
+  \s* ^ > \s+ (?P<arguments> {TEXT}) {EOL})*)
+(?P<closing> 
+  (?: \s* (?! Sincerely | Kind | Greetings | ^ ---+ {EOL}) (?P<hook> {TEXT}) {EOL})*
+  (?: \s* (?! ^ ---+ {EOL}) (?: \b(?P=name)\b | {CHAR})+ {EOL})*)
+(?: \s* ^ ---+ {EOL})?
+#\Z
+"""
+
+
+class Proposal(HasTraits):
+    cl = Instance(BaseCoverLetter, allow_none=False)
+    cv = Instance(BaseCV, allow_none=False)
+    file = File()
+
+    def _cl_default(self):
+        return BaseCoverLetter()
+
+    def _cv_default(self):
+        return BaseCV()
+
+    def _file_changed(self):
+        md = open(self.file).read()
+        print(self.file)
+        print(FILE)
+        m = re.match(FILE, md)
+        for attr in dir(self.cl):
+            try:
+                value = getattr(self.cl, attr)
+                if isinstance(value, (str, list, tuple)):
+                    try:
+                        if isinstance(value, str):
+                            setattr(self.cl, attr, m[attr])
+                        else:
+                            setattr(self.cl, attr, m.captures(attr))
+
+                        print(attr, getattr(self.cl, attr))
+                    except AttributeError:
+                        pass
+                    except IndexError:
+                        pass
+            except AttributeError:
+                pass
+
+
+proposal = Proposal()
+try:
+    proposal.file = 'cover_and_cv.md'
+except AttributeError:
+    pass
+
 def edit():
     try:
         from pyface.api import GUI
     except ImportError:
         raise ImportError("pip install pyside6<6.6  # Only available in Python <3.11")
 
-    cl.edit_traits()
+    proposal.cl.edit_traits()
     GUI().start_event_loop()
 
 
 if __name__ == "__main__":
     import fire
-
     fire.Fire(dict(edit=edit))
-    cv.build("Joakim_Pettersson_CV.docx")
-    cl.build(f"Joakim_Pettersson-{cl.role}-{cl.organization}.docx")
+
+    from build_cover_letter_and_cv_markdown import MarkdownBuilder
+
+    cv = "Joakim_Pettersson_CV.docx"
+    cl = f"Joakim_Pettersson-{proposal.cl.role}-{proposal.cl.organization}.docx"
+    proposal.cv.build(cv)
+    proposal.cl.build(cl)
+    MarkdownBuilder(cover=cl, cv=cv)

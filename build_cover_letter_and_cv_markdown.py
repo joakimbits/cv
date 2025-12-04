@@ -50,10 +50,7 @@ class MarkdownBuilder(HasTraits):
         self.__init__(cover=cover or self.cover, cv=cv or self.cv, out=out, **kw)
         cl = self._pandoc_docx_to_gfm(self.cover)
         cv = self._pandoc_docx_to_gfm(self.cv)
-        body = (
-                "<!-- >>> BEGIN cl -->\n" + cl + "\n<!-- <<< END cl -->\n\n" +
-                "<!-- >>> BEGIN cv -->\n" + cv + "\n<!-- <<< END cv -->\n"
-        )
+        body = cl + "---\n\n" + cv
         open(self.out, "w", encoding="utf-8").write(body)
         print(f"Wrote {self.out}")
 
@@ -65,7 +62,10 @@ class MarkdownBuilder(HasTraits):
         return p.stdout
 
     def _pandoc_docx_to_gfm(self, docx: Path, wrap="none"):
-        args = ["pandoc", str(docx), "-f", "docx", "-t", "gfm", "--wrap", self.wrap]
+        args = ['pandoc', str(docx), '-f', 'docx',
+                '-t', 'gfm+hard_line_breaks',
+                '--lua-filter', 'LineBreak2br.lua',
+                '--wrap', self.wrap]
         return re.sub(r'(?m)^>*\r?\n', '', self._run(args).decode("utf-8", "replace"))
 
     @classmethod

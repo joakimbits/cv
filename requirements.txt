@@ -1,5 +1,6 @@
 python-docx
 python-pptx
 traitsui
-#pyside6<6.6  # Only available in Python <3.11
+pyside6<6.6  # Only available in Python <3.11
 fire
+pyyaml
