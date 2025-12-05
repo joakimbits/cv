@@ -246,15 +246,15 @@ class BaseCV(StyledDocument, HasTraits):
 
     def add_header(self) -> None:
         # Name + subtitle in a tight block
-        h = self.doc.add_paragraph()
-        h.paragraph_format.space_after = Pt(0)
-        run1 = h.add_run(f"{self.name}\n")
-        run1.bold = True
-        run1.font.size = Pt(18)
-        run2 = h.add_run(
-            f"{self.level} {joined(self.specialities)} {self.role} – {joined(self.industries)}"
-        )
-        run2.font.size = Pt(12)
+        p = self.doc.add_heading()
+        p.paragraph_format.space_after = Pt(0)
+        p.add_run(self.name).font.size = Pt(18)
+
+        p = self.doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0)
+        p.add_run(f"{self.level} {joined(self.specialities)} {self.role} – {joined(self.industries)}"
+                  ).font.size = Pt(12)
 
         # Contact line
         p = self.doc.add_paragraph()
@@ -709,4 +709,4 @@ if __name__ == "__main__":
     cl = f"Joakim_Pettersson-{proposal.cl.role}-{proposal.cl.organization}.docx"
     proposal.cv.build(cv)
     proposal.cl.build(cl)
-    MarkdownBuilder(cover=cl, cv=cv)
+    MarkdownBuilder(cover=cl, cv=cv)()
