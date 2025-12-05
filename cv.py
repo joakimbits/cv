@@ -260,7 +260,7 @@ class BaseCV(StyledDocument, HasTraits):
         p = self.doc.add_paragraph()
         p.paragraph_format.space_before = Pt(0)
         p.paragraph_format.space_after = Pt(6)
-        p.add_run("📧 joakim.pettersson@ict.eu  📱 +46 708 29 99 74  🔗 ")
+        p.add_run(f"📧 {self.email}  📱 {self.phone}  🔗 ")
         # Hyperlink for LinkedIn
         self.add_hyperlink(p, self.linkedin_profile.rstrip('/').lstrip('https://www.'), self.linkedin_profile)
 
