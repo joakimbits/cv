@@ -491,6 +491,7 @@ class BaseCoverLetter(BaseCV):
     """Generic, neutral cover letter structure (content intentionally broad)."""
     role = Str("Engineer")
     organization  = Str("your organisation")
+    to_ask = Str("To ")
     to = Str("the hiring committee")
     location = Str("Dalby, Sweden")
     engagement = Str("Consultant via ICT Additude AB")
@@ -515,7 +516,7 @@ class BaseCoverLetter(BaseCV):
     traits_view = View(
         Item("receiver"),
         Item("role"),
-        Item("org"),
+        Item("organization"),
         Item("work"),
         Item("motivation"),
         Item("arguments"),
@@ -564,8 +565,9 @@ class BaseCoverLetter(BaseCV):
         r = self.add_field(p, "email", self.email)
         r = self.add_field(p, "engagement", self.engagement, 2)
 
+        r = p.add_run(self.to_ask)
         r = self.add_field(p, "to", f"{self.to},")
-        r = self.add_field(p, "organisation", self.organization)
+        r = self.add_field(p, "organization", self.organization)
 
     def add_opening(self) -> None:
         p = self.add_section_heading("Application for ")
@@ -601,25 +603,24 @@ class BaseCoverLetter(BaseCV):
 
 
 CR = "(?: <br>)"
-LF = r"\n"
-EOL = f"{CR}? {LF}"
-SEP = rf"\s* {CR}? \s*"
-CHAR = r"[^>\n#]"
+EOL = rf"{CR}? \n"
+SEP = rf"(?: \h* \n | \h* <br> \n | \h+)"
+CHAR = r"[^<\n#]"
 TEXT = f"{CHAR}*"
 PHONE = "[+ ,0-9]*"
 EMAIL = "[A-Za-z0-9_.+-]+@[A-Za-z0-9.-]*"
 COMMA_EOL = f"\s* , \s* {EOL}"
-RECEIVER = f"(?: (?! {COMMA_EOL}) {CHAR})*"
 
 def spaceout(text: str) -> str:
-    return text.replace(" ", " \s+ ")
+    return text.replace(" ", " \h+ ")
 
 def choice(name, *alternatives):
-    return f"\s* (?: (?P<{name}> {' | '.join(map(spaceout, alternatives))}) :? \s*)"
+    return f"\h* (?: (?P<{name}> {' | '.join(map(spaceout, alternatives))}) :? \h*)"
 
 def ask(name, pattern, *alternatives):
     return f"(?: {choice(f'{name}_ask', *alternatives)}? (?P<{name}> {pattern}) {SEP})"
 
+ROLE = choice('role', 'Engineer', 'Programmer', 'Developer', 'Designer', 'Manager')
 FILE = rf"""(?mxs)\A
 (?P<contact_block> 
   {ask('name', TEXT, 'Full name', 'Name')}?
@@ -628,23 +629,30 @@ FILE = rf"""(?mxs)\A
   {ask('email', EMAIL, 'Email')}?
   {ask('engagement', TEXT, 'Affiliation', 'Title')}?
   {EOL}*
-  (?: {ask('receiver', RECEIVER, "To")} {COMMA_EOL})?
-  {ask('org', TEXT, 'Organization')}?
-  {EOL}*)
+  (?: \h* (?: (?P<to_ask> To :? \h*))? (?P<to> (?: (?! {COMMA_EOL}) [^<\n#])*) {COMMA_EOL})?
+  {ask('organization', TEXT, 'Organization')}?
+)
+  \s*
 (?P<opening>
-  (^ \#+)? {ask('role', TEXT, 'Application for ')})?
-(?P<intro> (?:
-  working \s+ with \s+ (?P<work> [^\.]*) \. |
-  With \s+ (?P<motivation> (?: (?! , \s+ (?: I | we) \s) .)*) , \s+ (?P<group> I | we) \s+ |
-  (?P=org) | (?P=role) |
-  {CHAR})+ {EOL})
-(?P<body> (?:
-  \s* ^ > \s+ (?P<arguments> {TEXT}) {EOL})*)
+  (^ \#+)? {ask('role', TEXT, 'Application for ')}
+)
+  \s*
+(?P<intro>
+  (?:
+    working \h+ with \h+ (?P<work> [^\.]*) \. |
+    With \h+ (?P<motivation> (?: (?! , \h+ (?: I | we) \h) .)*) , \h+ (?P<group> I | we) \h+ |
+    (?P=organization) | (?P=role) |
+    {CHAR}
+  )+ {EOL}
+)
+(?P<body>
+  (?: \s* ^ > \h+ (?P<arguments> (?: (?! \n\n).)*) \n\n)*
+)
 (?P<closing> 
-  (?: \s* (?! Sincerely | Kind | Greetings | ^ ---+ {EOL}) (?P<hook> {TEXT}) {EOL})*
-  (?: \s* (?! ^ ---+ {EOL}) (?: \b(?P=name)\b | {CHAR})+ {EOL})*)
-(?: \s* ^ ---+ {EOL})?
-#\Z
+  \s* (?P<hook> (?: (?! Sincerely | Kind | Greetings | \** (?P=name) |  ^ ---+ \n) {TEXT} \n)*)
+  \s* (?: (?! \** (?P=name) | ^ ---+ \n) {TEXT} {EOL})*
+  \s* \** (?P=name) \**
+)
 """
 
 
@@ -660,17 +668,24 @@ class Proposal(HasTraits):
         return BaseCV()
 
     def _file_changed(self):
-        md = open(self.file).read()
-        print(self.file)
-        print(FILE)
+        md = open(self.file, encoding="utf-8").read()
         m = re.match(FILE, md)
+        if not m:
+            raise SyntaxError((f"{self.file} does not match Python https://regex101.com/ {FILE}"
+                               " - All (indented) patterns above must match something, but at least one fails."
+                               " Correct FILE pattern or file content.").replace(
+                r'\h', r'[^\S\n]').replace(
+                '📧', r'\U0001F4E7').replace(
+                '📱', r'\U0001F4F1').replace(
+                '🔗', r'\U0001F517'))
+
         for attr in dir(self.cl):
             try:
                 value = getattr(self.cl, attr)
                 if isinstance(value, (str, list, tuple)):
                     try:
                         if isinstance(value, str):
-                            setattr(self.cl, attr, m[attr])
+                            setattr(self.cl, attr, m[attr] or "")
                         else:
                             setattr(self.cl, attr, m.captures(attr))
 
@@ -686,7 +701,7 @@ class Proposal(HasTraits):
 proposal = Proposal()
 try:
     proposal.file = 'cover_and_cv.md'
-except AttributeError:
+except FileNotFoundError:
     pass
 
 def edit():
