@@ -25,8 +25,9 @@ from docx.oxml.ns import qn
 from docx.shared import Pt, Cm, Mm, RGBColor
 from docx.enum.text import WD_BREAK
 from docx.enum.style import WD_STYLE_TYPE
-from traits.api import HasTraits, File, List, Str, Tuple, Instance, TraitError
+from traits.api import HasTraits, File, List, Str, Tuple, Int
 from traitsui.api import View, Item
+from numpy import array, argwhere
 
 # ---- Branding / colors ----
 ACCENT_BLUE = RGBColor(0x00, 0x66, 0xB3)  # Additude headings
@@ -69,7 +70,7 @@ class StyledDocument:
         *,
         level: int = 1,
         space_before: int = 18,
-        space_after: int = 12,
+        space_after: int = 6,
     ):
         """
         Add a colored heading using Word's heading styles.
@@ -95,14 +96,10 @@ class StyledDocument:
                 " (2025) – Software Developer, Lund",
             )
         """
-        p = self.doc.add_paragraph()
-        pf = p.paragraph_format
-        pf.space_before = Pt(8)
-        pf.space_after = Pt(0)
-        pf.keep_with_next = True
+        p = self.add_section_heading("", level=3, space_before=8, space_after=0)
 
         # Linked, bold company name
-        self.add_hyperlink(p, company, url)
+        self.add_hyperlink(p, company, url, bold=False)
 
         # Rest of the line (years, role, location)
         p.add_run(" " + role)
@@ -420,7 +417,7 @@ class BaseCV(StyledDocument, HasTraits):
              ], [], []),
     ])])
 
-    LINK = re.compile(r"\[([^\]]*)\]\(([^)]*)\)")  # [text](url)
+    LINK = re.compile(r"\[\**([^\*\]]*)\**\]\(([^)]*)\)")  # [text](url)
 
     def add_experience(self) -> None:
         for heading, experience in self.experience:
@@ -433,7 +430,7 @@ class BaseCV(StyledDocument, HasTraits):
                         if i:
                             p.add_run(bullet[i:m.start()])
                         else:
-                            p = self.add_para(bullet[0:m.start()])
+                            p = self.add_bullet(bullet[0:m.start()])
 
                         self.add_hyperlink(p, *m.groups())
                         i = m.end()
@@ -449,7 +446,7 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Working approach & personal ------------------------
 
-    working_approach_and_personal = List(
+    environment_approaches = List(
         Tuple(Str, List(Str)),[
             ('Mentorship & collaboration', [
                 "Collaborative, analytical and dependable in cross-disciplinary environments.",
@@ -465,14 +462,14 @@ class BaseCV(StyledDocument, HasTraits):
             ])])
 
     def add_working_approach_and_personal(self) -> None:
-        for heading, how in self.working_approach_and_personal:
-            self.add_section_heading(heading.upper())
-            for bullet in how:
-                self.add_bullet(bullet)
+        for environment, approaches in self.environment_approaches:
+            self.add_section_heading(environment.upper())
+            for approach in approaches:
+                self.add_bullet(approach)
 
     # ----------------- Top-level build -----------------------------------
 
-    def build(self, filename: str) -> None:
+    def build_cv(self, filename: str) -> None:
         self.add_header()
         self.add_profile()
         self.add_core_competence()
@@ -494,7 +491,7 @@ class BaseCoverLetter(BaseCV):
     to_ask = Str("To ")
     to = Str("the hiring committee")
     location = Str("Dalby, Sweden")
-    engagement = Str("Consultant via ICT Additude AB")
+    affiliation = Str("Consultant via ICT Additude AB")
     work = Str("instrumentation, embedded software and complex systems")
     motivation = Str(
         "more than two decades of experience in measurement, integration and troubleshooting "
@@ -563,7 +560,7 @@ class BaseCoverLetter(BaseCV):
         r = self.add_field(p, "location", self.location)
         r = self.add_field(p, "phone", self.phone)
         r = self.add_field(p, "email", self.email)
-        r = self.add_field(p, "engagement", self.engagement, 2)
+        r = self.add_field(p, "engagement", self.affiliation, 2)
 
         r = p.add_run(self.to_ask)
         r = self.add_field(p, "to", f"{self.to},")
@@ -589,10 +586,8 @@ class BaseCoverLetter(BaseCV):
         p.add_run("Kind regards,\n")
         p.add_run(self.name).bold = True
 
-    def build(
-        self,
-        filename: str,
-    ) -> None:
+    def build_cover(self, filename: str) -> None:
+        self.__init__()  # Clear doc
         self.add_contact_block()
         self.add_opening()
         self.add_intro()
@@ -621,23 +616,23 @@ def ask(name, pattern, *alternatives):
     return f"(?: {choice(f'{name}_ask', *alternatives)}? (?P<{name}> {pattern}) {SEP})"
 
 ROLE = choice('role', 'Engineer', 'Programmer', 'Developer', 'Designer', 'Manager')
-FILE = rf"""(?mxs)\A
-(?P<contact_block> 
+LETTER = rf"""
+(?P<add_contact_block> 
   {ask('name', TEXT, 'Full name', 'Name')}?
   {ask('location', TEXT, 'Home address', 'Address')}?
   {ask('phone', PHONE, 'Phone', 'Mobile')}?
   {ask('email', EMAIL, 'Email')}?
-  {ask('engagement', TEXT, 'Affiliation', 'Title')}?
+  {ask('affiliation', TEXT, 'Affiliation')}?
   {EOL}*
   (?: \h* (?: (?P<to_ask> To :? \h*))? (?P<to> (?: (?! {COMMA_EOL}) [^<\n#])*) {COMMA_EOL})?
   {ask('organization', TEXT, 'Organization')}?
 )
   \s*
-(?P<opening>
+(?P<add_opening>
   (^ \#+)? {ask('role', TEXT, 'Application for ')}
 )
   \s*
-(?P<intro>
+(?P<add_intro>
   (?:
     working \h+ with \h+ (?P<work> [^\.]*) \. |
     With \h+ (?P<motivation> (?: (?! , \h+ (?: I | we) \h) .)*) , \h+ (?P<group> I | we) \h+ |
@@ -645,57 +640,167 @@ FILE = rf"""(?mxs)\A
     {CHAR}
   )+ {EOL}
 )
-(?P<body>
+(?P<add_body>
   (?: \s* ^ > \h+ (?P<arguments> (?: (?! \n\n).)*) \n\n)*
 )
-(?P<closing> 
-  \s* (?P<hook> (?: (?! Sincerely | Kind | Greetings | \** (?P=name) |  ^ ---+ \n) {TEXT} \n)*)
+(?P<add_closing> 
+  \s* (?P<hook> (?: (?! Sincerely | Kind | Greetings | \** (?P=name) |  ^ ---+ \n) {TEXT})*) \n\n
   \s* (?: (?! \** (?P=name) | ^ ---+ \n) {TEXT} {EOL})*
   \s* \** (?P=name) \**
 )
 """
 
+CV = rf"""
+(?P<add_header>
+    \#* \h* (?P=name) \n\n
+    
+    \h* (?P<level> Senior | Junior)
+    \h* (?: (?P<specialities> (?: (?! (?P=role)) [^,&<\n])*) [, &]+)*
+    (?P=role)?
+    \h [-–—] \h
+    (?: (?P<industries> (?: (?! \h* [,&\n]) .)+) \h* [,&]? \h*)* \n\n
+    
+    \h* (?: Email | 📧)? \h* (?P=email)
+    \h* (?: Phone| Mobile | 📱)? \h* (?P=phone)
+    \h* (?: LinkedIn | 🔗)? :? \h*
+    \[ \** (?: linkedin.com/in/)? (?P<linkedin_name> [^/*\]<\n]*) /? \** \]
+    \( (?P<linkedin_profile> (?: https?://www.)? linkedin.com/in/(?P=linkedin_name) /?)? \) \n\n
+)
+(?P<add_profile>
+    \#* \h PROFILE\n\n
+    (?: - \h (?P<profile> (?: (?! \n\n).)*) \n\n)*
+)
+(?P<add_core_competence>
+    \#* \h CORE \h COMPETENCE\n\n
+    (?:
+        \** (?P<categories> [^:]*) : \** \n\n
+        > \h (?: (?: \h•\h)? (?P<items> (?: (?! \h•\h | \n\n) .)*))* \n\n
+    )*
+)
+(?P<add_experience>
+    (?:
+        \s* ^ \# \h (?! MENTORSHIP | COLLABORATION | PERSONAL) (?P<headings> [^\n]*) \n\n
+        (?:
+            \s* ^ \#\#\# \h \[? (?P<companies> [^\](]*) \]?
+            (?: \( (?P<company_urls> https?:// [^\)]*) \))? \h
+            (?P<roles> [^\n]*) \n\n
+            (?: - \h (?P<bullets> (?: (?! \n\n).)*) \n\n)*
+            (?: > \h \** Technology: \** \h (?: (?: ,\h)? (?P<technologies> [^,\*]*))* \*\n\n)?
+            (?: > \h → \h \[ \** (?P<artifacts> [^\*]*) \** \] \( (?P<artifact_urls> https?:// [^\)]*) \)\n\n)*
+        )*
+    )*
+)
+(?P<add_working_approach_and_personal>
+    (?:
+        \s* ^ \# \h (?P<environments> [^\n]*) \n\n
+        (?: - \h (?P<approaches> (?: (?! \n\n).)*) \n\n)*
+    )*
+)
+"""
 
-class Proposal(HasTraits):
-    cl = Instance(BaseCoverLetter, allow_none=False)
-    cv = Instance(BaseCV, allow_none=False)
+FILE = rf"""(?mxs)
+  \A
+(?P<letter> {LETTER})
+(?:
+  \n\n ---+ \n\n
+)
+(?P<cv> {CV})
+  \Z
+"""
+
+class Proposal(BaseCoverLetter):
+    """Handle an assignment proposal file
+
+    Regenerates the same build_cv() and build_cover() Word documents that MarkdownBuilder used for the proposal file.
+    """
     file = File()
-
-    def _cl_default(self):
-        return BaseCoverLetter()
-
-    def _cv_default(self):
-        return BaseCV()
+    size = Int()
+    categories = items = \
+        headings = companies = company_urls = roles = bullets = technologies = artifacts = artifact_urls = \
+        environments = approaches = List(Str)
 
     def _file_changed(self):
         md = open(self.file, encoding="utf-8").read()
+        self.size = len(md)
         m = re.match(FILE, md)
         if not m:
             raise SyntaxError((f"{self.file} does not match Python https://regex101.com/ {FILE}"
-                               " - All (indented) patterns above must match something, but at least one fails."
-                               " Correct FILE pattern or file content.").replace(
+                               " - All (indented) patterns above must match with the file."
+                               " Correct FILE pattern or file content until they match.").replace(
                 r'\h', r'[^\S\n]').replace(
                 '📧', r'\U0001F4E7').replace(
                 '📱', r'\U0001F4F1').replace(
                 '🔗', r'\U0001F517'))
 
-        for attr in dir(self.cl):
-            try:
-                value = getattr(self.cl, attr)
-                if isinstance(value, (str, list, tuple)):
-                    try:
-                        if isinstance(value, str):
-                            setattr(self.cl, attr, m[attr] or "")
-                        else:
-                            setattr(self.cl, attr, m.captures(attr))
+        # Flat data
+        groupdict = m.groupdict()
+        for attr, handler in self.traits().items():
+            if attr in groupdict:
+                info = handler.full_info(self, attr, None)
+                if info == 'a string':
+                    setattr(self, attr, m[attr] or "")
+                elif info == 'a list of items which are a string':
+                    setattr(self, attr, m.captures(attr))
+                    setattr(self, attr + '_positions', array(m.spans(attr) + [(self.size, self.size)])[:,0])
+                    setattr(self, attr + '_index', 0)
 
-                        print(attr, getattr(self.cl, attr))
-                    except AttributeError:
-                        pass
-                    except IndexError:
-                        pass
-            except AttributeError:
-                pass
+        # Structured data
+        self.core_competence = self.structured([('categories', ['items'])])
+        self.experience = self.structured(
+            [('headings', [(
+                ('companies', 'company_urls', 'roles'),
+                ['bullets'],
+                ['technologies'],
+                [('artifacts', 'artifact_urls')])])])
+        self.environment_approaches = self.structured([('environments', ['approaches'])])
+
+    def structured(self, structure, span=None):
+        """Return a str with one value, a tuple or a list
+
+        In case of a str, the span is updated to not include the next one.
+        """
+        span = span or [0, self.size]
+        if isinstance(structure, str):
+            values = getattr(self, structure)
+            positions = getattr(self, structure + '_positions')
+            index = getattr(self, structure + '_index')
+            if positions[index] >= span[1]:
+                return ''
+
+            span[1] = min(span[1], positions[index + 1])
+            setattr(self, structure + '_index', index + 1)
+            return values[index]
+
+        if isinstance(structure, tuple):
+            items = []
+            for branch_index, branch in enumerate(structure):
+                item = self.structured(branch, span)
+                assert branch_index or item
+                items.append(item)
+
+            return tuple(items)
+
+        # List
+        item = structure[0]
+        if isinstance(item, str):
+            values = getattr(self, item)
+            positions = getattr(self, item + '_positions')
+            index = getattr(self, item + '_index')
+            next_structure_index = index + argwhere(positions[index:] >= span[1])[0][0]
+            setattr(self, item + '_index', next_structure_index)
+            values = values[index:next_structure_index]
+            if values and not values[-1]:
+                del values[-1]
+
+            return values
+
+        forest = []
+        while True:
+            try:
+                tree = self.structured(item, span[:])
+                forest.append(tree)
+            except AssertionError:
+                return forest
 
 
 proposal = Proposal()
@@ -710,7 +815,7 @@ def edit():
     except ImportError:
         raise ImportError("pip install pyside6<6.6  # Only available in Python <3.11")
 
-    proposal.cl.edit_traits()
+    proposal.edit_traits()
     GUI().start_event_loop()
 
 
@@ -721,7 +826,7 @@ if __name__ == "__main__":
     from build_cover_letter_and_cv_markdown import MarkdownBuilder
 
     cv = "Joakim_Pettersson_CV.docx"
-    cl = f"Joakim_Pettersson-{proposal.cl.role}-{proposal.cl.organization}.docx"
-    proposal.cv.build(cv)
-    proposal.cl.build(cl)
-    MarkdownBuilder(cover=cl, cv=cv)()
+    cover = f"Joakim_Pettersson-{proposal.role}-{proposal.organization}.docx"
+    proposal.build_cv(cv)
+    proposal.build_cover(cover)
+    MarkdownBuilder(cover=cover, cv=cv)()
