@@ -1,6 +1,10 @@
+# For traitsui edit_traits:
+pyside6<6.6  # Only available in Python <3.11
+numpy<2
+
+# for all other usage
 python-docx
 python-pptx
 traitsui
-pyside6<6.6  # Only available in Python <3.11
+numpy
 fire
-pyyaml

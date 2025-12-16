@@ -26,8 +26,8 @@ from docx.shared import Pt, Cm, Mm, RGBColor
 from docx.enum.text import WD_BREAK
 from docx.enum.style import WD_STYLE_TYPE
 from traits.api import HasTraits, File, List, Str, Tuple, Int
-from traitsui.api import View, Item
 from numpy import array, argwhere
+from traitsui.api import View, Item
 
 # ---- Branding / colors ----
 ACCENT_BLUE = RGBColor(0x00, 0x66, 0xB3)  # Additude headings
