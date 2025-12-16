@@ -27,7 +27,7 @@ from docx.enum.text import WD_BREAK
 from docx.enum.style import WD_STYLE_TYPE
 from traits.api import HasTraits, File, List, Str, Tuple, Int
 from numpy import array, argwhere
-from traitsui.api import View, Item
+from traitsui.api import View, Item, VGroup, HGroup, Group, Tabbed, TreeEditor, TreeNode
 
 # ---- Branding / colors ----
 ACCENT_BLUE = RGBColor(0x00, 0x66, 0xB3)  # Additude headings
@@ -521,27 +521,27 @@ CV = rf"""
 (?P<add_core_competence>
     \#* \h CORE \h COMPETENCE\n\n
     (?:
-        \** (?P<categories> [^:]*) : \** \n\n
-        > \h (?: (?: \h•\h)? (?P<items> (?: (?! \h•\h | \n\n) .)*))* \n\n
+        \** (?P<_categories> [^:]*) : \** \n\n
+        > \h (?: (?: \h•\h)? (?P<_items> (?: (?! \h•\h | \n\n) .)*))* \n\n
     )*
 )
 (?P<add_experience>
     (?:
-        \s* ^ \# \h (?! MENTORSHIP | COLLABORATION | PERSONAL) (?P<headings> [^\n]*) \n\n
+        \s* ^ \# \h (?! MENTORSHIP | COLLABORATION | PERSONAL) (?P<_headings> [^\n]*) \n\n
         (?:
-            \s* ^ \#\#\# \h \[? (?P<companies> [^\](]*) \]?
-            (?: \( (?P<company_urls> https?:// [^\)]*) \))? \h
-            (?P<roles> [^\n]*) \n\n
-            (?: - \h (?P<bullets> (?: (?! \n\n).)*) \n\n)*
-            (?: > \h \** Technology: \** \h (?: (?: ,\h)? (?P<technologies> [^,\*]*))* \*\n\n)?
-            (?: > \h → \h \[ \** (?P<artifacts> [^\*]*) \** \] \( (?P<artifact_urls> https?:// [^\)]*) \)\n\n)*
+            \s* ^ \#\#\# \h \[? (?P<_companies> [^\](]*) \]?
+            (?: \( (?P<_company_urls> https?:// [^\)]*) \))? \h
+            (?P<_roles> [^\n]*) \n\n
+            (?: - \h (?P<_bullets> (?: (?! \n\n).)*) \n\n)*
+            (?: > \h \** Technology: \** \h (?: (?: ,\h)? (?P<_technologies> [^,\*]*))* \*\n\n)?
+            (?: > \h → \h \[ \** (?P<_artifacts> [^\*]*) \** \] \( (?P<_artifact_urls> https?:// [^\)]*) \)\n\n)*
         )*
     )*
 )
 (?P<add_working_approach_and_personal>
     (?:
-        \s* ^ \# \h (?P<environments> [^\n]*) \n\n
-        (?: - \h (?P<approaches> (?: (?! \n\n).)*) \n\n)*
+        \s* ^ \# \h (?P<_environments> [^\n]*) \n\n
+        (?: - \h (?P<_approaches> (?: (?! \n\n).)*) \n\n)*
     )*
 )
 """
@@ -562,10 +562,10 @@ class Proposal(BaseCoverLetter):
     Regenerates the same build_cv() and build_cover() Word documents that MarkdownBuilder used for the proposal file.
     """
     file = File()
-    size = Int()
-    categories = items = \
-        headings = companies = company_urls = roles = bullets = technologies = artifacts = artifact_urls = \
-        environments = approaches = List(Str)
+    size = int
+    _categories = _items = \
+        _headings = _companies = _company_urls = _roles = _bullets = _technologies = _artifacts = _artifact_urls = \
+        _environments = _approaches = List(Str)
 
     def _file_changed(self):
         md = open(self.file, encoding="utf-8").read()
@@ -589,23 +589,28 @@ class Proposal(BaseCoverLetter):
                     setattr(self, attr, m[attr] or "")
                 elif info == 'a list of items which are a string':
                     setattr(self, attr, m.captures(attr))
-                    setattr(self, attr + '_positions', array(m.spans(attr) + [(self.size, self.size)])[:,0])
                     setattr(self, attr + '_index', 0)
 
+                setattr(self, attr + '_positions', array(m.spans(attr) + [(self.size, self.size)])[:,0])
+
         # Structured data
-        self.core_competence = self.structured([('categories', ['items'])])
-        self.experience = self.structured(
-            [('headings', [(
-                ('companies', 'company_urls', 'roles'),
-                ['bullets'],
-                ['technologies'],
-                [('artifacts', 'artifact_urls')])])])
-        self.environment_approaches = self.structured([('environments', ['approaches'])])
+        self.core_competence, self.core_competence_positions = self.structured(
+            [('_categories', [
+                '_items'])])
+        self.experience, self.experience_positions = self.structured(
+            [('_headings', [(
+                ('_companies', '_company_urls', '_roles'),
+                ['_bullets'],
+                ['_technologies'],
+                [('_artifacts', '_artifact_urls')])])])
+        self.environment_approaches, self.environment_approaches_positions = self.structured(
+            [('_environments', [
+                '_approaches'])])
 
     def structured(self, structure, span=None):
-        """Return a str with one value, a tuple or a list
+        """Return a str with one value, a tuple or a list; and the _positions span used
 
-        In case of a str, the span is updated to not include the next one.
+        In case of a str, the span is updated to not include the previous and next one.
         """
         span = span or [0, self.size]
         if isinstance(structure, str):
@@ -613,20 +618,20 @@ class Proposal(BaseCoverLetter):
             positions = getattr(self, structure + '_positions')
             index = getattr(self, structure + '_index')
             if positions[index] >= span[1]:
-                return ''
+                return '', span
 
-            span[1] = min(span[1], positions[index + 1])
+            span[0], span[1] = positions[index:index + 2]
             setattr(self, structure + '_index', index + 1)
-            return values[index]
+            return values[index], span
 
         if isinstance(structure, tuple):
             items = []
             for branch_index, branch in enumerate(structure):
-                item = self.structured(branch, span)
+                item, span = self.structured(branch, span)
                 assert branch_index or item
                 items.append(item)
 
-            return tuple(items)
+            return tuple(items), span
 
         # List
         item = structure[0]
@@ -640,15 +645,15 @@ class Proposal(BaseCoverLetter):
             if values and not values[-1]:
                 del values[-1]
 
-            return values
+            return values, span
 
         forest = []
         while True:
             try:
-                tree = self.structured(item, span[:])
+                tree, _ = self.structured(item, span[:])
                 forest.append(tree)
             except AssertionError:
-                return forest
+                return forest, span
 
 
 proposal = Proposal()
