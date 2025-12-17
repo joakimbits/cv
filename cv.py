@@ -25,12 +25,13 @@ from docx.oxml.ns import qn
 from docx.shared import Pt, Cm, Mm, RGBColor
 from docx.enum.text import WD_BREAK
 from docx.enum.style import WD_STYLE_TYPE
-from traits.api import HasTraits, File, List, Str, Tuple, Int
+from traits.api import HasTraits, File, List, Str, Tuple
 from numpy import array, argwhere
-from traitsui.api import View, Item, VGroup, HGroup, Group, Tabbed, TreeEditor, TreeNode
+from traitsui.api import View, Item, HGroup, Group
 from traitsui.editors.api import ListEditor, TextEditor
 
-from auto_height_text_editor import AutoHeightTextEditor
+from ui.auto_height_text_editor import AutoHeightTextEditor
+Text = Str(editor=AutoHeightTextEditor())
 
 
 # ---- Branding / colors ----
@@ -281,7 +282,7 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Profile -------------------------------------------
 
-    profile = List(Str, editor=flat_text_list_editor(rows=3))
+    profile = List(Text)
 
     def add_profile(self) -> None:
         self.add_section_heading("PROFILE")
@@ -308,8 +309,8 @@ class BaseCV(StyledDocument, HasTraits):
 
     Experience = Tuple(
         Tuple(Str, Str, Str),
-        List(Str, editor=flat_text_list_editor(rows=3)),
-        List(Str, editor=flat_text_list_editor(rows=5)),
+        List(Text),
+        List(Str),
         List(Tuple(Str, Str)))
     experience = List(Tuple(Str, List(Experience)))
 
@@ -342,7 +343,7 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Working approach & personal ------------------------
 
-    environment_approaches = List(Tuple(Str, List(Str, editor=flat_text_list_editor(rows=3))))
+    environment_approaches = List(Tuple(Str, List(Text)))
 
     def add_working_approach_and_personal(self) -> None:
         for environment, approaches in self.environment_approaches:
@@ -366,7 +367,6 @@ class BaseCV(StyledDocument, HasTraits):
 # BaseCoverLetter – neutral, extendable
 # =====================================================================
 
-
 class BaseCoverLetter(BaseCV):
     """Generic, neutral cover letter structure (content intentionally broad)."""
     role = Str
@@ -375,10 +375,10 @@ class BaseCoverLetter(BaseCV):
     to = Str
     location = Str
     affiliation = Str
-    work = Str(editor=TextEditor(multi_line=True, auto_set=False, enter_set=True))
-    motivation = Str(editor=TextEditor(multi_line=True, auto_set=False, enter_set=True))
-    arguments = List(Str, editor=flat_text_list_editor(rows=2))
-    hook = Str(editor=AutoHeightTextEditor())
+    work = Text
+    motivation = Text
+    arguments = List(Text)
+    hook = Text
 
     def add_field(self, paragraph, style_name: str, text: str, eols: int = 1):
         # 1) create a character style (always new as you wanted)
