@@ -6,6 +6,9 @@ from traitsui.basic_editor_factory import BasicEditorFactory
 from traitsui.qt.editor import Editor
 from PySide6 import QtWidgets, QtGui, QtCore
 
+from ui.overflow_badge_helper import attach_overflow_badge
+
+
 class _ResizeWatcher(QtCore.QObject):
     """Forwards Resize events to the editor's _resize_to_content()."""
     def __init__(self, editor: "._AutoHeightTextEditor"):
@@ -46,6 +49,7 @@ class _AutoHeightTextEditor(Editor):
         )
 
         self.control = te  # <- let TraitsUI place it next to the label
+        self._overflow_badge_ctl = attach_overflow_badge(self.control, mode="lines")
         self._list_mode = isinstance(self.value, (list, tuple))
 
         self.update_editor()
