@@ -358,19 +358,6 @@ class BaseCoverLetter(BaseCV):
     arguments = List(Str)
     hook = Str
 
-    traits_view = View(
-        Item("to"),
-        Item("role"),
-        Item("organization"),
-        Item("work"),
-        Item("motivation"),
-        Item("arguments"),
-        Item("hook"),
-        title=f"Cover Letter",
-        resizable=True,
-        buttons=["OK"],
-    )
-
     def add_field(self, paragraph, style_name: str, text: str, eols: int = 1):
         # 1) create a character style (always new as you wanted)
         style = self.doc.styles.add_style(style_name, WD_STYLE_TYPE.CHARACTER)
@@ -567,6 +554,10 @@ class Proposal(BaseCoverLetter):
         _headings = _companies = _company_urls = _roles = _bullets = _technologies = _artifacts = _artifact_urls = \
         _environments = _approaches = List(Str)
 
+    # For the edit_traits() method:
+    traits_view = View
+    file_positions = [-1]  # Every pubic trait needs _positions so that we can sort them all into traits_view.
+
     def _file_changed(self):
         md = open(self.file, encoding="utf-8").read()
         self.size = len(md)
@@ -606,6 +597,31 @@ class Proposal(BaseCoverLetter):
         self.environment_approaches, self.environment_approaches_positions = self.structured(
             [('_environments', [
                 '_approaches'])])
+
+        # Make a view for all public traits sorted by _positions[0]
+        pos_attrs = sorted([(getattr(self, attr + '_positions')[0], attr)
+                            for attr in self.traits().keys() if self.is_view_item(attr)])
+        attrs = array(pos_attrs)[:,1]
+        self.traits_view = View(*map(Item, attrs), title="Proposal", resizable=True, buttons=["OK"])
+
+    def is_view_item(self, attr: str):
+        """
+        Return the first class in the MRO that defines `trait_name` in its __dict__.
+        Works for Traits since class attributes are descriptors stored on the class.
+        """
+        if not attr[0].islower():
+            return False
+
+        here = False
+        for cls in type(self).__mro__:
+            if hasattr(cls, 'class_traits'):
+                somewhere = attr in cls.class_traits()
+                if cls.__module__ == "__main__":
+                    here |= somewhere
+                else:
+                    here &= not somewhere
+
+        return here
 
     def structured(self, structure, span=None):
         """Return a str with one value, a tuple or a list; and the _positions span used
@@ -648,10 +664,13 @@ class Proposal(BaseCoverLetter):
             return values, span
 
         forest = []
+        first = True
         while True:
             try:
-                tree, _ = self.structured(item, span[:])
+                tree, span_here = self.structured(item, span[:])
                 forest.append(tree)
+                if first:
+                    span[0] = span_here[0]
             except AssertionError:
                 return forest, span
 
@@ -668,7 +687,7 @@ def edit():
     except ImportError:
         raise ImportError("pip install pyside6<6.6  # Only available in Python <3.11")
 
-    proposal.edit_traits()
+    proposal.edit_traits(view=proposal.traits_view)
     GUI().start_event_loop()
 
 
