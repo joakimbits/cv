@@ -28,6 +28,10 @@ from docx.enum.style import WD_STYLE_TYPE
 from traits.api import HasTraits, File, List, Str, Tuple, Int
 from numpy import array, argwhere
 from traitsui.api import View, Item, VGroup, HGroup, Group, Tabbed, TreeEditor, TreeNode
+from traitsui.editors.api import ListEditor, TextEditor
+
+from auto_height_text_editor import AutoHeightTextEditor
+
 
 # ---- Branding / colors ----
 ACCENT_BLUE = RGBColor(0x00, 0x66, 0xB3)  # Additude headings
@@ -227,6 +231,20 @@ def joined(items: list[str], sep=", ", final_sep=" & "):
     return sep.join(items[:-1]) + final_sep + items[-1]
 
 
+def flat_text_list_editor(rows: int = 6, style="custom") -> ListEditor:
+    """
+    A compact, per-item text editor list factory (no listbox).
+    - style='custom' lays out editors vertically
+    - editor=TextEditor(...) gives plain text fields per row
+    - rows controls vertical size (adds scroll if needed)
+    """
+    return ListEditor(
+            style=style,
+            editor=TextEditor(auto_set=False, enter_set=True),
+            rows=rows,              # target visible rows before scrolling
+        )
+
+
 class BaseCV(StyledDocument, HasTraits):
     """Base CV corresponding to the compressed 2025-11-11 version."""
 
@@ -263,7 +281,7 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Profile -------------------------------------------
 
-    profile = List(Str)
+    profile = List(Str, editor=flat_text_list_editor(rows=3))
 
     def add_profile(self) -> None:
         self.add_section_heading("PROFILE")
@@ -272,7 +290,7 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Core competence -----------------------------------
 
-    core_competence = List(Tuple(Str, List(Str)))
+    core_competence = List(Tuple(Str, List(Str, editor=flat_text_list_editor(rows=6, style="text"))))
 
     def add_core_competence(self) -> None:
         self.add_section_heading("CORE COMPETENCE")
@@ -288,7 +306,11 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Experience ----------------------------------------
 
-    Experience = Tuple(Tuple(Str, Str, Str), List(Str), List(Str), List(Tuple(Str, Str)))
+    Experience = Tuple(
+        Tuple(Str, Str, Str),
+        List(Str, editor=flat_text_list_editor(rows=3)),
+        List(Str, editor=flat_text_list_editor(rows=5)),
+        List(Tuple(Str, Str)))
     experience = List(Tuple(Str, List(Experience)))
 
     LINK = re.compile(r"\[\**([^\*\]]*)\**\]\(([^)]*)\)")  # [text](url)
@@ -320,7 +342,7 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Working approach & personal ------------------------
 
-    environment_approaches = List(Tuple(Str, List(Str)))
+    environment_approaches = List(Tuple(Str, List(Str, editor=flat_text_list_editor(rows=3))))
 
     def add_working_approach_and_personal(self) -> None:
         for environment, approaches in self.environment_approaches:
@@ -353,10 +375,10 @@ class BaseCoverLetter(BaseCV):
     to = Str
     location = Str
     affiliation = Str
-    work = Str
-    motivation = Str
-    arguments = List(Str)
-    hook = Str
+    work = Str(editor=TextEditor(multi_line=True, auto_set=False, enter_set=True))
+    motivation = Str(editor=TextEditor(multi_line=True, auto_set=False, enter_set=True))
+    arguments = List(Str, editor=flat_text_list_editor(rows=2))
+    hook = Str(editor=AutoHeightTextEditor())
 
     def add_field(self, paragraph, style_name: str, text: str, eols: int = 1):
         # 1) create a character style (always new as you wanted)
@@ -601,8 +623,14 @@ class Proposal(BaseCoverLetter):
         # Make a view for all public traits sorted by _positions[0]
         pos_attrs = sorted([(getattr(self, attr + '_positions')[0], attr)
                             for attr in self.traits().keys() if self.is_view_item(attr)])
-        attrs = array(pos_attrs)[:,1]
-        self.traits_view = View(*map(Item, attrs), title="Proposal", resizable=True, buttons=["OK"])
+        attrs = [name for _, name in pos_attrs]
+        items = [Item(name, springy=False) for name in attrs]
+        splits = [attrs.index(new_group) for new_group in ('profile', 'experience', 'environment_approaches')]
+        group_indices = [(start, end) for start, end in zip([0] + splits, splits + [len(attrs)])]
+        groups = [Group(*items[start:end]) for start, end in group_indices]
+        self.traits_view = View(HGroup(*groups),
+                                title="Proposal", resizable=True, buttons=["OK"],
+                                x=0, y=0, width=1.0, height=1.0)
 
     def is_view_item(self, attr: str):
         """
