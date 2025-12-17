@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import math
-from typing import List as TList, Optional
+from typing import List as TList, Optional, Literal
 
 from traits.api import Int, Bool
 from traitsui.basic_editor_factory import BasicEditorFactory
@@ -11,11 +11,61 @@ from traitsui.qt.editor import Editor
 from PySide6 import QtWidgets, QtCore, QtGui
 
 
+# ----------------------- Overflow badge (per-cell) -----------------------
+
+class _OverflowBadge(QtWidgets.QWidget):
+    """Small rounded pill with '…' or '… N more'. Pure paint for low overhead."""
+    def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
+        super().__init__(parent)
+        self._text = "…"
+        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+
+    def set_text(self, text: str) -> None:
+        if text != self._text:
+            self._text = text
+            self.updateGeometry()
+            self.update()
+
+    def sizeHint(self) -> QtCore.QSize:  # small pill
+        fm = QtGui.QFontMetrics(self.font())
+        w = fm.horizontalAdvance(self._text) + 12
+        h = fm.height() + 4
+        return QtCore.QSize(w, h)
+
+    def paintEvent(self, ev: QtGui.QPaintEvent) -> None:  # noqa: N802
+        p = QtGui.QPainter(self)
+        p.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        r = self.rect()
+        # background
+        bg = self.palette().color(QtGui.QPalette.ColorRole.Midlight)
+        pen = self.palette().color(QtGui.QPalette.ColorRole.Mid)
+        p.setPen(pen)
+        p.setBrush(bg)
+        p.drawRoundedRect(r.adjusted(0, 0, -1, -1), 8, 8)
+        # text
+        p.setPen(self.palette().color(QtGui.QPalette.ColorRole.WindowText))
+        p.drawText(r.adjusted(6, 2, -6, -2), QtCore.Qt.AlignCenter, self._text)
+
+
 # ------------------------------ Cell ------------------------------
 
+_OverflowCount = Literal["lines", "chars", "none"]
+
 class _Cell(QtWidgets.QTextEdit):
-    """Wrapping plain-text cell with capped natural (wrapped) height. Quiet while typing."""
-    def __init__(self, parent=None, *, min_lines: int = 1, max_lines: int = 6):
+    """
+    Wrapping plain-text cell with capped natural height.
+    Optional per-cell overflow badge when text exceeds max_lines.
+    """
+    def __init__(
+        self,
+        parent=None,
+        *,
+        min_lines: int = 1,
+        max_lines: int = 6,
+        show_overflow_badge: bool = True,
+        overflow_count_mode: _OverflowCount = "lines",
+    ):
         super().__init__(parent)
         self.setAcceptRichText(False)
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
@@ -27,14 +77,27 @@ class _Cell(QtWidgets.QTextEdit):
 
         self._min_lines = max(1, int(min_lines))
         self._max_lines = max(self._min_lines, int(max_lines))
-        self._cached_col_w: int = -1  # avoid redundant setTextWidth
+        self._cached_col_w: int = -1
+
+        self._show_badge = bool(show_overflow_badge)
+        self._count_mode: _OverflowCount = overflow_count_mode if overflow_count_mode in ("lines", "chars", "none") else "lines"
+        self._badge = _OverflowBadge(self) if self._show_badge else None
+        if self._badge:
+            self._badge.hide()
+
+        # Update only the badge on content wrap changes; do NOT poke outer layout.
+        self.document().documentLayout().documentSizeChanged.connect(self._refresh_overflow_badge)
+
+    # ---- measuring helpers ----
 
     def set_column_width(self, width_px: int) -> None:
         width_px = max(1, int(width_px))
         if width_px == self._cached_col_w:
-            return  # avoids documentSizeChanged churn
+            return
         self._cached_col_w = width_px
         self.document().setTextWidth(float(width_px))
+        # badge may need to move/retitle
+        self._refresh_overflow_badge()
 
     def _line_h(self) -> float:
         fm = QtGui.QFontMetricsF(self.font())
@@ -44,6 +107,33 @@ class _Cell(QtWidgets.QTextEdit):
         h = float(self.document().size().height())
         return max(1, int(math.ceil(h / self._line_h())))
 
+    def _extra_lines(self) -> int:
+        return max(0, self._wrapped_lines() - self._max_lines)
+
+    def _extra_chars(self) -> int:
+        # Approximate: characters beyond last visible block
+        if self._extra_lines() <= 0:
+            return 0
+        doc = self.document()
+        # count chars in blocks beyond max_lines (rough, fast)
+        extra = 0
+        line_budget = self._max_lines
+        b = doc.begin()
+        while b.isValid():
+            layout = b.layout()
+            line_count = layout.lineCount() if layout else 1
+            if line_budget <= 0:
+                extra += b.length()  # includes '\n'
+            else:
+                if line_count > line_budget:
+                    # part of this block overflows
+                    # crude estimate: proportional split
+                    frac = max(0, line_count - line_budget) / max(1, line_count)
+                    extra += int(b.length() * frac)
+                line_budget -= line_count
+            b = b.next()
+        return max(0, extra)
+
     def natural_px(self, col_w: int) -> int:
         self.set_column_width(col_w)
         lines = max(self._min_lines, min(self._wrapped_lines(), self._max_lines))
@@ -51,7 +141,38 @@ class _Cell(QtWidgets.QTextEdit):
         frame = self.frameWidth()
         return int(lines * self._line_h() + m.top() + m.bottom() + frame * 2 + 2)
 
-    # push model on focus-out only (snappy)
+    # ---- overflow badge ----
+
+    def _badge_text(self) -> str:
+        if self._count_mode == "none":
+            return "…"
+        if self._count_mode == "lines":
+            n = self._extra_lines()
+            return "…" if n <= 0 else f"… {n} more"
+        # chars
+        n = self._extra_chars()
+        return "…" if n <= 0 else f"… {n} chars"
+
+    def _refresh_overflow_badge(self) -> None:
+        if not self._badge:
+            return
+        overflow = self._extra_lines() > 0
+        if not overflow:
+            self._badge.hide()
+            return
+        self._badge.set_text(self._badge_text())
+        sz = self._badge.sizeHint()
+        cr = self.contentsRect()
+        x = cr.right() - sz.width() - 2
+        y = cr.bottom() - sz.height() - 2
+        self._badge.setGeometry(QtCore.QRect(x, y, sz.width(), sz.height()))
+        self._badge.show()
+
+    def resizeEvent(self, ev: QtGui.QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(ev)
+        self._refresh_overflow_badge()
+
+    # push value on focus-out (quiet; outer layout relayout handled by host)
     def focusOutEvent(self, ev: QtGui.QFocusEvent) -> None:  # noqa: N802
         super().focusOutEvent(ev)
         host = self.parent()
@@ -326,8 +447,8 @@ class _FlowListEditor(Editor):
         self._building = True
 
         while self._layout.count():
-            item = self._layout.takeAt(0)
-            w = item.widget()
+            it = self._layout.takeAt(0)
+            w = it.widget()
             if w is not None:
                 w.setParent(None)
 
@@ -337,8 +458,17 @@ class _FlowListEditor(Editor):
 
         min_l = max(1, int(self.factory.min_lines))
         max_l = max(min_l, int(self.factory.max_lines))
+
         for v in (vals or [""]):
-            cell = _Cell(self.control, min_lines=min_l, max_lines=max_l)
+            cell = _Cell(
+                self.control,
+                min_lines=min_l,
+                max_lines=max_l,
+                show_overflow_badge=bool(self.factory.cell_overflow_badge),
+                overflow_count_mode=("lines" if self.factory.cell_overflow_count_lines
+                                     else "chars" if self.factory.cell_overflow_count_chars
+                                     else "none"),
+            )
             cell.setPlainText(v)
             self._cells.append(cell)
             self._layout.addWidget(cell)
@@ -357,27 +487,33 @@ class FlowListStrEditor(BasicEditorFactory):
     """
     Use on List(Str):
         Item('bullets', editor=FlowListStrEditor(
-            min_columns=1, max_columns=6,
-            min_column_width=140,
+            min_columns=1, max_columns=6, min_column_width=140,
+            h_spacing=12, v_spacing=0,
+            # list-level overflow indicator (already implemented previously)
             show_overflow_indicator=True,
-            min_lines=1, max_lines=6,
-            h_spacing=12, v_spacing=0))
+            # per-cell overflow badge:
+            cell_overflow_badge=True,
+            cell_overflow_count_lines=True,   # or set cell_overflow_count_chars=True
+            min_lines=1, max_lines=6))
     """
     klass = _FlowListEditor
 
-    # column policy
+    # list-level column policy (as before)
     min_columns = Int(1)
     max_columns = Int(6)
-    min_column_width = Int(140)        # keep columns readable
-    show_overflow_indicator = Bool(True)
-
-    # spacing
+    min_column_width = Int(140)
     h_spacing = Int(12)
     v_spacing = Int(0)
+    show_overflow_indicator = Bool(True)
 
     # per-cell line bounds
     min_lines = Int(1)
     max_lines = Int(6)
+
+    # per-cell overflow badge
+    cell_overflow_badge = Bool(True)
+    cell_overflow_count_lines = Bool(True)   # mutually exclusive with chars
+    cell_overflow_count_chars = Bool(False)
 
 
 # ------------------------------- demo -------------------------------
