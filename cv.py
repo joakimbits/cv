@@ -32,6 +32,11 @@ from traitsui.editors.api import ListEditor, TextEditor
 
 from ui.auto_height_text_editor import AutoHeightTextEditor
 Text = Str(editor=AutoHeightTextEditor())
+from ui.line_elide_editor import LineElideEditor
+Line = Str(editor=LineElideEditor())
+from ui.flow_list_str_editor import FlowListStrEditor
+ListText = List(Str, editor=FlowListStrEditor())
+ListLine = List(Str, editor=FlowListStrEditor(single_line=True, single_line_elide=True))
 
 
 # ---- Branding / colors ----
@@ -254,8 +259,8 @@ class BaseCV(StyledDocument, HasTraits):
     name = Str
     role = Str
     level = Str
-    specialities = List(Str)
-    industries = List(Str)
+    specialities = ListLine
+    industries = ListLine
     email = Str
     phone = Str
     linkedin_profile = Str
@@ -291,7 +296,7 @@ class BaseCV(StyledDocument, HasTraits):
 
     # ----------------- Core competence -----------------------------------
 
-    core_competence = List(Tuple(Str, List(Str, editor=flat_text_list_editor(rows=6, style="text"))))
+    core_competence = List(Tuple(Str, ListLine))
 
     def add_core_competence(self) -> None:
         self.add_section_heading("CORE COMPETENCE")
@@ -625,7 +630,7 @@ class Proposal(BaseCoverLetter):
                             for attr in self.traits().keys() if self.is_view_item(attr)])
         attrs = [name for _, name in pos_attrs]
         items = [Item(name, springy=False) for name in attrs]
-        splits = [attrs.index(new_group) for new_group in ('profile', 'experience', 'environment_approaches')]
+        splits = [attrs.index(new_group) for new_group in ('level', 'experience', 'environment_approaches')]
         group_indices = [(start, end) for start, end in zip([0] + splits, splits + [len(attrs)])]
         groups = [Group(*items[start:end]) for start, end in group_indices]
         self.traits_view = View(HGroup(*groups),
