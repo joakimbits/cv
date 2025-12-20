@@ -9,155 +9,15 @@ from traitsui.basic_editor_factory import BasicEditorFactory
 from traitsui.qt.editor import Editor
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from ui.str_cell_editor import (
+    _OverflowBadge,
+    CellTextEdit,
+    ElidedLineEdit,
+    make_cell,
+)
+from ui.cell_base import CellProtocol
 
-# ---------------- badge widgets ----------------
-
-class _OverflowBadge(QtWidgets.QWidget):
-    def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
-        super().__init__(parent)
-        self._text = "…"
-        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents, True)
-
-    def set_text(self, text: str) -> None:
-        if text != self._text:
-            self._text = text
-            self.update()
-
-    def sizeHint(self) -> QtCore.QSize:  # noqa: N802
-        fm = QtGui.QFontMetrics(self.font())
-        return QtCore.QSize(fm.horizontalAdvance(self._text) + 12, fm.height() + 4)
-
-    def paintEvent(self, _: QtGui.QPaintEvent) -> None:  # noqa: N802
-        p = QtGui.QPainter(self)
-        p.setRenderHint(QtGui.QPainter.Antialiasing, True)
-        r = self.rect().adjusted(0, 0, -1, -1)
-        p.setPen(self.palette().color(QtGui.QPalette.Mid))
-        p.setBrush(self.palette().color(QtGui.QPalette.Midlight))
-        p.drawRoundedRect(r, 8, 8)
-        p.setPen(self.palette().color(QtGui.QPalette.WindowText))
-        p.drawText(self.rect().adjusted(6, 2, -6, -2), QtCore.Qt.AlignCenter, self._text)
-
-
-# ---------------- cells ----------------
-
-class _Cell(QtWidgets.QTextEdit):
-    splitRequested = QtCore.Signal(object, str, str)  # (self, head, tail)
-
-    def __init__(self, parent=None, *, min_lines: int = 1, max_lines: int = 6):
-        super().__init__(parent)
-        self.setAcceptRichText(False)
-        self.setFrameShape(QtWidgets.QFrame.NoFrame)
-        self.setWordWrapMode(QtGui.QTextOption.WrapAtWordBoundaryOrAnywhere)
-        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.setTabChangesFocus(True)
-        self._min_lines = max(1, int(min_lines))
-        self._max_lines = max(self._min_lines, int(max_lines))
-        self._badge = _OverflowBadge(self)
-        self._badge.hide()
-        self._on_blur: Optional[Callable[[QtWidgets.QWidget], None]] = None  # set by editor
-        self.document().documentLayout().documentSizeChanged.connect(self._refresh_overflow_badge)
-
-    def keyPressEvent(self, e: QtGui.QKeyEvent) -> None:  # noqa: N802
-        if e.key() in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter):
-            c = self.textCursor()
-            t = self.toPlainText()
-            self.splitRequested.emit(self, t[:c.position()], t[c.position():])
-            e.accept()
-            return
-        super().keyPressEvent(e)
-
-    def insertFromMimeData(self, source: QtGui.QMimeData) -> None:  # noqa: N802
-        if source.hasText():
-            s = source.text()
-            if "\n" in s:
-                c = self.textCursor()
-                cur = self.toPlainText()
-                head, tail0 = cur[:c.position()], cur[c.position():]
-                parts = s.split("\n")  # keep trailing empty
-                new_head = head + parts[0]
-                new_tails = parts[1:] + [tail0]
-                self.splitRequested.emit(self, new_head, "\n".join(new_tails))
-                return
-        super().insertFromMimeData(source)
-
-    def focusOutEvent(self, e: QtGui.QFocusEvent) -> None:  # noqa: N802
-        super().focusOutEvent(e)
-        self.viewport().update()  # avoid ghost caret
-        if self._on_blur:
-            self._on_blur(self)
-
-    def natural_px(self, col_w: int) -> int:
-        doc = self.document()
-        doc.setTextWidth(float(max(1, int(col_w))))
-        lh = QtGui.QFontMetricsF(self.font()).lineSpacing() or 1.0
-        wrapped = max(1, int(math.ceil(float(doc.size().height()) / lh)))
-        lines = max(self._min_lines, min(wrapped, self._max_lines))
-        m = self.contentsMargins()
-        return int(lines * lh + m.top() + m.bottom() + self.frameWidth() * 2 + 2)
-
-    def _refresh_overflow_badge(self) -> None:
-        lh = QtGui.QFontMetricsF(self.font()).lineSpacing() or 1.0
-        wrapped = max(1, int(math.ceil(float(self.document().size().height()) / lh)))
-        extra = max(0, wrapped - self._max_lines)
-        if extra <= 0:
-            self._badge.hide()
-            return
-        self._badge.set_text(f"… {extra} more")
-        sz = self._badge.sizeHint()
-        cr = self.contentsRect()
-        self._badge.setGeometry(cr.right() - sz.width() - 2, cr.bottom() - sz.height() - 2, sz.width(), sz.height())
-        self._badge.show()
-
-    def resizeEvent(self, e: QtGui.QResizeEvent) -> None:  # noqa: N802
-        super().resizeEvent(e)
-        self._refresh_overflow_badge()
-
-
-class _ElidedOneLineCell(QtWidgets.QLineEdit):
-    splitRequested = QtCore.Signal(object, str, str)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFrame(False)
-        self._on_blur: Optional[Callable[[QtWidgets.QWidget], None]] = None  # set by editor
-
-    def keyPressEvent(self, e: QtGui.QKeyEvent) -> None:  # noqa: N802
-        if e.key() in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter):
-            pos = self.cursorPosition()
-            t = self.text()
-            self.splitRequested.emit(self, t[:pos], t[pos:])
-            e.accept()
-            return
-        super().keyPressEvent(e)
-
-    def natural_px(self, col_w: int) -> int:
-        fm = QtGui.QFontMetrics(self.font())
-        m = self.contentsMargins()
-        return int(fm.lineSpacing() + m.top() + m.bottom() + 2)
-
-    def focusOutEvent(self, e: QtGui.QFocusEvent) -> None:  # noqa: N802
-        super().focusOutEvent(e)
-        self.update()  # avoid ghost caret
-        if self._on_blur:
-            self._on_blur(self)
-
-    def paintEvent(self, e: QtGui.QPaintEvent) -> None:  # noqa: N802
-        if self.hasFocus():
-            return super().paintEvent(e)
-        p = QtGui.QPainter(self)
-        p.setRenderHint(QtGui.QPainter.TextAntialiasing, True)
-        p.fillRect(self.rect(), self.palette().brush(QtGui.QPalette.Base))
-        fm = QtGui.QFontMetrics(self.font())
-        avail = max(1, self.contentsRect().width() - 4)
-        mode = QtCore.Qt.ElideMiddle if "://" in self.text() else QtCore.Qt.ElideRight
-        elided = fm.elidedText(self.text(), mode, avail)
-        r = self.contentsRect().adjusted(2, 0, -2, 0)
-        p.setPen(self.palette().color(QtGui.QPalette.Text))
-        p.drawText(r, int(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft), elided)
-
-
-# --------------- multi-column layout ----------------
+# ---------- multi-column layout ----------
 
 class _NewspaperLayout(QtWidgets.QLayout):
     _MIN_COLUMNS = 1
@@ -191,7 +51,6 @@ class _NewspaperLayout(QtWidgets.QLayout):
         self.activate()
 
     def sizeHint(self) -> QtCore.QSize:  # noqa: N802
-        # Required by Qt; returning a sensible default avoids the pure-virtual call.
         return QtCore.QSize(self._MIN_COL_WIDTH, 400)
 
     def setGeometry(self, rect: QtCore.QRect) -> None:  # noqa: N802
@@ -254,10 +113,9 @@ class _NewspaperLayout(QtWidgets.QLayout):
             cells[j].setGeometry(zero)
             cells[j].hide()
 
+# ---------- list editor (strings) ----------
 
-# --------------- editor ----------------
-
-class _FlowListEditor(Editor):
+class _FlowListStrEditor(Editor):
     """
     Enter splits (no newline). Enter at start inserts empty BEFORE; Enter at end keeps trailing empty AFTER.
     Multi-line paste splits. Delete on blur for empty cells. Guard re-entrancy during splits.
@@ -290,23 +148,23 @@ class _FlowListEditor(Editor):
         self._splitting = False
         self.update_editor()
 
-    def _make_cell(self, text: str) -> QtWidgets.QWidget:
-        parent = self._layout.parentWidget()
-        if int(self.factory.max_lines) == 1:
-            c = _ElidedOneLineCell(parent)
-            c.setText(text)
-        else:
-            c = _Cell(parent, min_lines=1, max_lines=int(self.factory.max_lines))
-            c.setPlainText(text)
-        c._on_blur = self._on_cell_blur
-        c.splitRequested.connect(self._split_cell)
-        return c
+    def _wire_cell(self, w: CellProtocol) -> None:
+        w.splitRequested.connect(self._split_cell)          # type: ignore[attr-defined]
+        w.emptyBlurred.connect(self._on_cell_empty_blur)    # type: ignore[attr-defined]
 
-    @QtCore.Slot(object, str, str)
-    def _split_cell(self, w: QtWidgets.QWidget, head: str, tail: str) -> None:
-        if self._splitting or w.parent() is None:
+    def _make_cell(self, text: str) -> CellProtocol:
+        parent = self._layout.parentWidget()
+        w = make_cell(parent, max_lines=int(self.factory.max_lines), text=text)
+        self._wire_cell(w)
+        return w
+
+    # ---- split handler ----
+
+    @QtCore.Slot(object, object, object)
+    def _split_cell(self, sender: QtWidgets.QWidget, head: str, tail: str) -> None:
+        if self._splitting or sender.parent() is None:
             return
-        idx = self._layout.indexOf(w)
+        idx = self._layout.indexOf(sender)
         if idx < 0:
             return
 
@@ -321,23 +179,23 @@ class _FlowListEditor(Editor):
                     if it:
                         nw = it.widget()
                         nw.setFocus(QtCore.Qt.TabFocusReason)
-                        if isinstance(nw, _ElidedOneLineCell):
+                        if isinstance(nw, ElidedLineEdit):
                             nw.setCursorPosition(0)
-                        elif isinstance(nw, _Cell):
+                        elif isinstance(nw, CellTextEdit):
                             tc = nw.textCursor(); tc.movePosition(QtGui.QTextCursor.Start); nw.setTextCursor(tc)
-                    w.clearFocus()
-                    (w.viewport().update() if isinstance(w, _Cell) else w.update())
+                    sender.clearFocus()
+                    (sender.viewport().update() if isinstance(sender, CellTextEdit) else sender.update())
                     self._layout.activate()
                 QtCore.QTimer.singleShot(0, apply_before)
                 return
 
             tails = tail.split("\n")  # keep trailing empty
 
-            # Update current widget without echoing signals
-            if isinstance(w, _ElidedOneLineCell):
-                prev = w.blockSignals(True); w.setText(head); w.blockSignals(prev)
-            elif isinstance(w, _Cell):
-                w.blockSignals(True); w.setPlainText(head); w.blockSignals(False)
+            # Update sender text without echo
+            if isinstance(sender, ElidedLineEdit):
+                prev = sender.blockSignals(True); sender.setText(head); sender.blockSignals(prev)
+            elif isinstance(sender, CellTextEdit):
+                sender.blockSignals(True); sender.setPlainText(head); sender.blockSignals(False)
             self.value[idx] = head
 
             insert_at = idx + 1
@@ -352,25 +210,29 @@ class _FlowListEditor(Editor):
                     if it:
                         nxt = it.widget()
                         nxt.setFocus(QtCore.Qt.TabFocusReason)
-                        if isinstance(nxt, _ElidedOneLineCell):
+                        if isinstance(nxt, ElidedLineEdit):
                             nxt.setCursorPosition(0)
-                        elif isinstance(nxt, _Cell):
+                        elif isinstance(nxt, CellTextEdit):
                             tc = nxt.textCursor(); tc.movePosition(QtGui.QTextCursor.Start); nxt.setTextCursor(tc)
-                w.clearFocus()
-                (w.viewport().update() if isinstance(w, _Cell) else w.update())
+                sender.clearFocus()
+                (sender.viewport().update() if isinstance(sender, CellTextEdit) else sender.update())
                 self._layout.activate()
             QtCore.QTimer.singleShot(0, apply_after)
         finally:
             self._splitting = False
 
-    def _on_cell_blur(self, w: QtWidgets.QWidget) -> None:
+    # ---- delete-on-blur ----
+
+    @QtCore.Slot(object)
+    def _on_cell_empty_blur(self, sender: QtWidgets.QWidget) -> None:
         if self._splitting:
             return
-        idx = self._layout.indexOf(w)
+        idx = self._layout.indexOf(sender)
         if idx < 0:
             return
 
-        text = w.text() if isinstance(w, _ElidedOneLineCell) else (w.toPlainText() if isinstance(w, _Cell) else "")
+        # Safety: confirm emptiness
+        text = sender.text() if isinstance(sender, ElidedLineEdit) else (sender.toPlainText() if isinstance(sender, CellTextEdit) else "")
         if text != "":
             return
 
@@ -389,19 +251,18 @@ class _FlowListEditor(Editor):
         prv = self._layout.itemAt(idx - 1).widget() if idx - 1 >= 0 else None
         (nxt or prv or self.control).setFocus(QtCore.Qt.TabFocusReason)
 
+    # ---- traits glue ----
+
     def update_editor(self):
         if self._layout.count() == 0:
             for v in self.value:
                 self._layout.addWidget(self._make_cell(v))
 
-
 class FlowListStrEditor(BasicEditorFactory):
-    klass = _FlowListEditor
+    klass = _FlowListStrEditor
     max_lines = Int(6)
 
-
-# ---------------- demo ----------------
-
+# Demo
 if __name__ == "__main__":
     from traits.api import HasTraits, List, Str
     from traitsui.api import Item, View
@@ -411,14 +272,14 @@ if __name__ == "__main__":
             "https://example.com/really/long/path/1/file.ext",
             "A longer text in cell 2 that may not fit the cell",
         ])
-        multi = List(Str, ["A longer wrapped text that spans several lines. "] * 2 + [f"Line {i}" for i in range(1, 10)])
+        multi = List(Str, ["This is a longer wrapped line. "] * 2 + [f"Line {i}" for i in range(1, 10)])
 
         traits_view = View(
             Item("one_line", show_label=False, editor=FlowListStrEditor(max_lines=1)),
             Item("multi", show_label=False, editor=FlowListStrEditor(max_lines=4)),
             resizable=True,
             buttons=["OK"],
-            title="FlowListStrEditor (fixed sizeHint)",
+            title="FlowListStrEditor (generic cell contract)",
         )
 
     Demo().configure_traits()
