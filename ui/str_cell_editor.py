@@ -9,7 +9,7 @@ from traitsui.basic_editor_factory import BasicEditorFactory
 from traitsui.qt.editor import Editor
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from ui.cell_base import CellProtocol
+from ui.cell_protocol import CellProtocol
 
 # ---------- shared badge ----------
 

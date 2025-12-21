@@ -30,13 +30,13 @@ from numpy import array, argwhere
 from traitsui.api import View, Item, HGroup, Group
 from traitsui.editors.api import ListEditor, TextEditor
 
-from ui.auto_height_text_editor import AutoHeightTextEditor
-Text = Str(editor=AutoHeightTextEditor())
-from ui.line_elide_editor import LineElideEditor
-Line = Str(editor=LineElideEditor())
+from ui.str_cell_editor import FlowStrEditor
 from ui.flow_list_str_editor import FlowListStrEditor
+
+Text = Str(editor=FlowStrEditor())
 ListText = List(Str, editor=FlowListStrEditor())
-ListLine = List(Str, editor=FlowListStrEditor(single_line=True, single_line_elide=True))
+Line = Str(editor=FlowStrEditor(max_lines=1))
+ListLine = List(Str, editor=FlowListStrEditor(max_lines=1))
 
 
 # ---- Branding / colors ----
