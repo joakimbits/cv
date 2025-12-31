@@ -1,35 +1,21 @@
-# file: branches_git_pathspec.py
+# file: branches.py
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any as TypingAny, Dict, Iterable, List as TList, Sequence, Tuple
+from typing import Any as TypingAny, Deque, Dict, Iterable, List as TList, Optional, Sequence, Set, Tuple
 
-from traits.api import (
-    Any,
-    Bool,
-    Button,
-    Directory,
-    Enum,
-    HasTraits,
-    Instance,
-    Int,
-    List,
-    Property,
-    Str,
-)
-from traitsui.api import (
-    DirectoryEditor,
-    HGroup,
-    Item,
-    TreeEditor,
-    TreeNode,
-    UItem,
-    VGroup,
-    View,
-)
+from traits.api import Any, Bool, Button, HasTraits, Instance, Int, List, Property, Str, observe
+from traitsui.api import HGroup, Item, TreeEditor, TreeNode, UItem, VGroup, View
+
+
+# -----------------------------
+# Errors + git runner
+# -----------------------------
 
 
 class GitError(RuntimeError):
@@ -39,22 +25,30 @@ class GitError(RuntimeError):
         self.stderr = stderr
 
 
-def _fmt_cmd(args: Sequence[str]) -> str:
-    return "git " + " ".join(shlex.quote(a) for a in args)
+def _fmt_cmd(cmd: Sequence[str]) -> str:
+    return " ".join(shlex.quote(x) for x in cmd)
 
 
-def _run_git(repo_root: Path, args: Sequence[str], timeout_s: int = 60) -> str:
+def _run_git(
+    repo_root: Path,
+    args: Sequence[str],
+    *,
+    timeout_s: int = 60,
+    check: bool = True,
+    stdin_text: Optional[str] = None,
+) -> Tuple[int, str, str]:
     cmd = ["git", "-C", str(repo_root), *args]
     try:
         cp = subprocess.run(
             cmd,
-            check=True,
+            input=stdin_text,
+            check=check,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             timeout=timeout_s,
         )
-        return cp.stdout
+        return cp.returncode, cp.stdout, cp.stderr
     except FileNotFoundError as e:
         raise GitError("git executable not found in PATH.", cmd=_fmt_cmd(cmd), stderr=str(e)) from e
     except subprocess.TimeoutExpired as e:
@@ -66,554 +60,488 @@ def _run_git(repo_root: Path, args: Sequence[str], timeout_s: int = 60) -> str:
         raise GitError(msg, cmd=_fmt_cmd(cmd), stderr=stderr) from e
 
 
-def _show_error_dialog(message: str, title: str) -> None:
-    try:
-        from pyface.message_dialog import error as msg_error
-    except Exception:
-        return
-
-    try:
-        msg_error(message, title=title)  # some versions
-    except TypeError:
-        msg_error(None, message, title)  # other versions
-
-
-def _find_repo_root(repo_dir: Path) -> Path:
-    out = _run_git(repo_dir, ["rev-parse", "--show-toplevel"], timeout_s=30)
+def _find_repo_root(start: Path) -> Path:
+    _rc, out, _err = _run_git(start, ["rev-parse", "--show-toplevel"], timeout_s=30)
     root = Path(out.strip())
     if not root.exists():
-        raise GitError("Failed to resolve repo root.", cmd="git rev-parse --show-toplevel")
+        raise GitError("Failed to resolve repo root.")
     return root
 
 
 def _normalize_pathspec(s: str) -> str:
-    """
-    Git pathspecs are repo-relative; normalize Windows slashes.
-    Keep it intentionally minimal: no filesystem probing.
-    """
     return (s or "").strip().replace("\\", "/")
 
 
-def _chunked(xs: TList[str], chunk_size: int) -> Iterable[TList[str]]:
-    for i in range(0, len(xs), chunk_size):
-        yield xs[i : i + chunk_size]
+def _chunked(xs: TList[str], n: int) -> Iterable[TList[str]]:
+    for i in range(0, len(xs), n):
+        yield xs[i : i + n]
 
 
 # -----------------------------
-# Branches mode: branch -> commits that match pathspec
+# Git data extraction (math layer)
 # -----------------------------
 
-@dataclass(frozen=True)
-class TouchCommitInfo:
-    sha: str
-    author: str
-    date_iso: str
-    subject: str
-
-
-def _list_local_branches(repo_root: Path) -> TList[str]:
-    out = _run_git(repo_root, ["for-each-ref", "--format=%(refname:short)", "refs/heads"], timeout_s=30)
-    branches = [b.strip() for b in out.splitlines() if b.strip()]
-    return sorted(branches, key=str.casefold)
-
-
-def _parse_git_log_lines(lines: Iterable[str]) -> TList[TouchCommitInfo]:
-    commits: TList[TouchCommitInfo] = []
-    for line in lines:
-        if not line:
-            continue
-        parts = line.split("\x1f")
-        if len(parts) != 4:
-            continue
-        sha, author, date_iso, subject = (p.strip() for p in parts)
-        if sha:
-            commits.append(TouchCommitInfo(sha=sha, author=author, date_iso=date_iso, subject=subject))
-    return commits
-
-
-def _commits_touching_pathspec(repo_root: Path, branch: str, pathspec: str) -> TList[TouchCommitInfo]:
-    fmt = "%H%x1f%an%x1f%ad%x1f%s"
-    out = _run_git(
-        repo_root,
-        ["log", "--date=iso-strict", f"--pretty=format:{fmt}", branch, "--", pathspec],
-        timeout_s=120,
-    )
-    return _parse_git_log_lines(out.splitlines())
-
-
-# -----------------------------
-# History / Branch-out: commit graph subset from `git log --pretty="%H %P" ... -- <pathspec>`
-# -----------------------------
 
 @dataclass(frozen=True)
 class CommitMeta:
     sha: str
-    parents: TList[str]
     author: str
     date_iso: str
     subject: str
+    epoch: int
 
 
-def _log_with_parents(
-    repo_root: Path,
-    *,
-    pathspec: str,
-    max_commits: int,
-    start_ref: str,
-    all_refs: bool,
-) -> TList[Tuple[str, TList[str]]]:
-    args: TList[str] = ["log", "--topo-order", f"-n{max_commits}", "--pretty=format:%H %P"]
-    if all_refs:
-        args.insert(1, "--all")
-    else:
-        args.append(start_ref)
-    args.extend(["--", pathspec])
+def _head_branch(repo_root: Path) -> str:
+    rc, out, _err = _run_git(repo_root, ["symbolic-ref", "-q", "--short", "HEAD"], timeout_s=30, check=False)
+    return out.strip() if rc == 0 else ""
 
-    out = _run_git(repo_root, args, timeout_s=180)
 
+def _head_file_tip_sha(repo_root: Path, pathspec: str) -> str:
+    rc, out, _err = _run_git(
+        repo_root,
+        ["log", "-n", "1", "--pretty=format:%H", "HEAD", "--", pathspec],
+        timeout_s=90,
+        check=False,
+    )
+    if rc != 0:
+        return ""
+    out = out.strip()
+    return out.splitlines()[0].strip() if out else ""
+
+
+def _branches_list(repo_root: Path, include_remotes: bool) -> TList[str]:
+    refs = ["refs/heads"]
+    if include_remotes:
+        refs.append("refs/remotes")
+
+    _rc, out, _err = _run_git(repo_root, ["for-each-ref", "--format=%(refname:short)", *refs], timeout_s=60)
+    names = [ln.strip() for ln in out.splitlines() if ln.strip()]
+    names = [n for n in names if not n.endswith("/HEAD")]
+    names.sort(key=str.casefold)
+    return names
+
+
+def _file_tip_sha(repo_root: Path, ref: str, pathspec: str) -> str:
+    rc, out, _err = _run_git(
+        repo_root,
+        ["log", "-n", "1", "--pretty=format:%H", ref, "--", pathspec],
+        timeout_s=90,
+        check=False,
+    )
+    if rc != 0:
+        return ""
+    out = out.strip()
+    return out.splitlines()[0].strip() if out else ""
+
+
+def _touch_log_rows(repo_root: Path, pathspec: str, max_commits: int) -> TList[Tuple[str, TList[str]]]:
+    """
+    Commits that touched the file (across all refs), newest -> oldest, topo-ordered.
+    Each row: (sha, [parents...]) parents are the real commit parents (may include non-touch commits).
+    """
+    args = ["log", "--all", "--topo-order", f"-n{max_commits}", "--pretty=format:%H %P", "--", pathspec]
+    _rc, out, _err = _run_git(repo_root, args, timeout_s=240)
     rows: TList[Tuple[str, TList[str]]] = []
-    for line in out.splitlines():
-        line = line.strip()
-        if not line:
+    for ln in out.splitlines():
+        ln = ln.strip()
+        if not ln:
             continue
-        toks = line.split()
+        toks = ln.split()
         rows.append((toks[0], toks[1:]))
     return rows
 
 
-def _parse_show_records(text: str) -> Dict[str, CommitMeta]:
-    metas: Dict[str, CommitMeta] = {}
-    for rec in text.split("\x1e"):
-        rec = rec.strip()
-        if not rec:
+def _ancestor_parent_graph(repo_root: Path, start_commits: TList[str]) -> Dict[str, TList[str]]:
+    """
+    Parent map for all ancestors reachable from start_commits.
+    Uses --stdin to avoid Windows cmdline length issues.
+    """
+    stdin = "\n".join(start_commits) + "\n"
+    rc, out, err = _run_git(
+        repo_root,
+        ["rev-list", "--parents", "--topo-order", "--stdin"],
+        timeout_s=240,
+        check=False,
+        stdin_text=stdin,
+    )
+    if rc != 0:
+        raise GitError(err.strip() or "git rev-list failed.", cmd="git rev-list --parents --stdin", stderr=err.strip())
+
+    parents_map: Dict[str, TList[str]] = {}
+    for ln in out.splitlines():
+        ln = ln.strip()
+        if not ln:
             continue
-        parts = rec.split("\x1f")
-        if len(parts) != 5:
-            continue
-        sha, parents_s, author, date_iso, subject = (p.strip() for p in parts)
-        parents = [p for p in parents_s.split() if p] if parents_s else []
-        metas[sha] = CommitMeta(sha=sha, parents=parents, author=author, date_iso=date_iso, subject=subject)
-    return metas
+        toks = ln.split()
+        parents_map[toks[0]] = toks[1:]
+    return parents_map
 
 
-def _fetch_commit_meta(repo_root: Path, shas: TList[str]) -> Dict[str, CommitMeta]:
+def _fetch_meta(repo_root: Path, shas: TList[str]) -> Dict[str, CommitMeta]:
     if not shas:
         return {}
-    fmt = "%H%x1f%P%x1f%an%x1f%ad%x1f%s%x1e"
+    fmt = "%H%x1f%an%x1f%ad%x1f%ct%x1f%s%x1e"
     metas: Dict[str, CommitMeta] = {}
-    for chunk in _chunked(shas, chunk_size=200):
-        out = _run_git(
+    for chunk in _chunked(list(dict.fromkeys(shas)), 200):
+        _rc, out, _err = _run_git(
             repo_root,
             ["show", "-s", "--date=iso-strict", f"--pretty=format:{fmt}", *chunk],
-            timeout_s=180,
+            timeout_s=240,
         )
-        metas.update(_parse_show_records(out))
+        for rec in out.split("\x1e"):
+            rec = rec.strip()
+            if not rec:
+                continue
+            parts = rec.split("\x1f")
+            if len(parts) != 5:
+                continue
+            sha, author, date_iso, epoch_s, subject = (p.strip() for p in parts)
+            try:
+                epoch = int(epoch_s)
+            except ValueError:
+                epoch = 0
+            metas[sha] = CommitMeta(sha=sha, author=author, date_iso=date_iso, subject=subject, epoch=epoch)
     return metas
 
 
-def _name_rev_map(
+def _nearest_touch_commits(
+    start_sha: str,
+    *,
+    touch_set: Set[str],
+    parents_map: Dict[str, TList[str]],
+    cache: Dict[str, TList[str]],
+    max_bfs: int = 50_000,
+) -> TList[str]:
+    """
+    BFS backward from start_sha over parents_map until we hit commit(s) in touch_set.
+    Return hits at minimal distance.
+    """
+    if not start_sha:
+        return []
+    if start_sha in cache:
+        return cache[start_sha]
+    if start_sha in touch_set:
+        cache[start_sha] = [start_sha]
+        return cache[start_sha]
+
+    q: Deque[Tuple[str, int]] = deque([(start_sha, 0)])
+    visited: Set[str] = set()
+    best_depth: Optional[int] = None
+    found: TList[str] = []
+    steps = 0
+
+    while q:
+        sha, depth = q.popleft()
+        steps += 1
+        if steps > max_bfs:
+            break
+        if sha in visited:
+            continue
+        visited.add(sha)
+
+        if best_depth is not None and depth > best_depth:
+            break
+
+        if sha in touch_set:
+            if best_depth is None:
+                best_depth = depth
+            if depth == best_depth:
+                found.append(sha)
+            continue
+
+        for p in parents_map.get(sha, []):
+            if p and p not in visited:
+                q.append((p, depth + 1))
+
+    out: TList[str] = []
+    seen: Set[str] = set()
+    for x in found:
+        if x not in seen:
+            seen.add(x)
+            out.append(x)
+
+    cache[start_sha] = out
+    return out
+
+
+def build_file_history_graph(
     repo_root: Path,
-    shas: TList[str],
+    pathspec: str,
+    *,
+    max_commits: int,
     include_remotes: bool,
-    all_refs: bool = False,   # ✅ default fixes your TypeError
-) -> Dict[str, str]:
-    if not shas:
-        return {}
+) -> Tuple[
+    TList[str],                    # touch_shas newest->oldest
+    Dict[str, TList[str]],         # touch_parents: sha -> [touch_parent_sha...]
+    Dict[str, CommitMeta],         # meta for touch commits
+    Dict[str, TList[str]],         # branch_labels: sha -> [branch names where sha is that branch's file-tip]
+    str,                           # head_file_tip_sha
+    str,                           # head_branch
+]:
+    touch_rows = _touch_log_rows(repo_root, pathspec, max_commits=max_commits)
+    touch_shas = [sha for sha, _ in touch_rows]
+    touch_set = set(touch_shas)
 
-    base_args: TList[str] = ["name-rev", "--name-only"]
-    if all_refs:
-        base_args.append("--all")
-    else:
-        refs = ["refs/heads/*"]
-        if include_remotes:
-            refs.append("refs/remotes/*")
-        base_args.append(f"--refs={','.join(refs)}")
+    parents_map = _ancestor_parent_graph(repo_root, touch_shas)
 
-    out_map: Dict[str, str] = {}
-    for chunk in _chunked(shas, chunk_size=200):
-        out = _run_git(repo_root, [*base_args, *chunk], timeout_s=180)
-        names = [ln.strip() for ln in out.splitlines()]
-        for sha, name in zip(chunk, names, strict=False):
-            out_map[sha] = "" if (not name or name.lower() == "undefined") else name
-    return out_map
+    nearest_cache: Dict[str, TList[str]] = {}
+    touch_parents: Dict[str, TList[str]] = {}
+
+    for sha, direct_parents in touch_rows:
+        parents_out: TList[str] = []
+        for p in direct_parents:
+            parents_out.extend(
+                _nearest_touch_commits(
+                    p,
+                    touch_set=touch_set,
+                    parents_map=parents_map,
+                    cache=nearest_cache,
+                )
+            )
+        seen: Set[str] = set()
+        uniq: TList[str] = []
+        for x in parents_out:
+            if x not in seen:
+                seen.add(x)
+                uniq.append(x)
+        touch_parents[sha] = uniq
+
+    metas = _fetch_meta(repo_root, touch_shas)
+
+    branch_labels: Dict[str, TList[str]] = {}
+    for b in _branches_list(repo_root, include_remotes=include_remotes):
+        tip = _file_tip_sha(repo_root, b, pathspec)
+        if tip:
+            branch_labels.setdefault(tip, []).append(b)
+    for sha in branch_labels:
+        branch_labels[sha].sort(key=str.casefold)
+
+    head_branch = _head_branch(repo_root)
+    head_file_tip = _head_file_tip_sha(repo_root, pathspec)
+
+    return touch_shas, touch_parents, metas, branch_labels, head_file_tip, head_branch
 
 
 # -----------------------------
-# Traits nodes / roots
+# Traits UI nodes (display-only)
 # -----------------------------
 
-class CommitNode(HasTraits):
+
+class CommitTreeNode(HasTraits):
     sha = Str
     author = Str
     date_iso = Str
     subject = Str
+    epoch = Int(0)
 
-    parents = List(Instance("CommitNode"))
-    name_rev = Str
+    branches = Str
+    is_head = Bool(False)
 
-    label = Property(Str, depends_on="sha,subject,date_iso,name_rev")
-    details = Property(Str, depends_on="sha,author,date_iso,subject,name_rev")
+    children = List(Any)
 
-    def _get_label(self) -> str:
-        short = self.sha[:10] if self.sha else ""
-        date_part = self.date_iso[:10] if self.date_iso else ""
-        deco = f"[{self.name_rev}]" if self.name_rev else ""
-        return f"{short}  {date_part}  {self.subject}  {deco}".rstrip()
-
-    def _get_details(self) -> str:
-        return (
-            f"Commit:   {self.sha}\n"
-            f"Author:   {self.author}\n"
-            f"Date:     {self.date_iso}\n"
-            f"Title:    {self.subject}\n"
-            f"Name-rev: {self.name_rev}\n"
-        )
-
-
-class ForwardCommitNode(HasTraits):
-    sha = Str
-    author = Str
-    date_iso = Str
-    subject = Str
-
-    children = List(Instance("ForwardCommitNode"))
-    name_rev = Str
-
-    label = Property(Str, depends_on="sha,subject,date_iso,name_rev")
-    details = Property(Str, depends_on="sha,author,date_iso,subject,name_rev")
+    label = Property(Str, depends_on="sha,subject,date_iso,branches,is_head")
 
     def _get_label(self) -> str:
         short = self.sha[:10] if self.sha else ""
         date_part = self.date_iso[:10] if self.date_iso else ""
-        deco = f"[{self.name_rev}]" if self.name_rev else ""
-        return f"{short}  {date_part}  {self.subject}  {deco}".rstrip()
-
-    def _get_details(self) -> str:
-        return (
-            f"Commit:   {self.sha}\n"
-            f"Author:   {self.author}\n"
-            f"Date:     {self.date_iso}\n"
-            f"Title:    {self.subject}\n"
-            f"Name-rev: {self.name_rev}\n"
-        )
+        head = "  [HEAD]" if self.is_head else ""
+        br = f"  [{self.branches}]" if self.branches else ""
+        return f"{short}  {date_part}  {self.subject}{head}{br}".rstrip()
 
 
-class BranchNode(HasTraits):
-    name = Str
-    commits = List(Instance(CommitNode))
-    label = Property(Str, depends_on="name,commits")
-
-    def _get_label(self) -> str:
-        return f"{self.name}  ({len(self.commits)})"
-
-
-class BranchRoot(HasTraits):
-    branches = List(Instance(BranchNode))
-    label = Str("Branches")
-
-
-class HistoryRoot(HasTraits):
-    heads = List(Instance(CommitNode))
-    label = Str("History (parents)")
-
-
-class BranchOutRoot(HasTraits):
-    roots = List(Instance(ForwardCommitNode))
-    label = Str("Branch-out (children)")
+class FileHistoryRoot(HasTraits):
+    label = Str("File history")
+    children = List(Any)
 
 
 # -----------------------------
-# App model
+# UI model
 # -----------------------------
 
-class AppModel(HasTraits):
-    repo_path = Directory
-    pathspec = Str  # ✅ git pathspec, not filesystem file
 
-    mode = Enum("Branches", "History", "Branch-out")
-
-    # Branches options
-    branch_filter = Str
-
-    # History options
-    start_ref = Str("HEAD")
-    max_commits = Int(800)
+class FileHistoryModel(HasTraits):
+    repo_path = Str
+    pathspec = Str
     include_remotes = Bool(False)
-    show_name_rev = Bool(True)
+    max_commits = Int(2000)
 
-    # Branch-out options
-    branch_out_all_refs = Bool(True)
-
-    # Debug / UX
-    crash_on_error = Bool(False)
-    show_error_dialog = Bool(True)
+    hard_crash_on_error = Bool(True)
 
     refresh = Button("Refresh")
 
-    root = Any
+    tree_root = Instance(FileHistoryRoot)
     selected = Any
     status = Str
-    last_git_cmd = Str
-    last_git_stderr = Str
 
     selected_details = Property(Str, depends_on="selected")
 
-    def _root_default(self) -> TypingAny:
-        return BranchRoot(branches=[], label="Branches")
+    def _tree_root_default(self) -> FileHistoryRoot:
+        return FileHistoryRoot(label="File history", children=[])
 
     def _get_selected_details(self) -> str:
         sel = self.selected
-        if isinstance(sel, (CommitNode, ForwardCommitNode)):
-            return sel.details
-        if isinstance(sel, BranchNode):
-            return f"Branch: {sel.name}\nCommits: {len(sel.commits)}\n"
-        if isinstance(sel, (BranchRoot, HistoryRoot, BranchOutRoot)):
+        if isinstance(sel, CommitTreeNode):
+            return (
+                f"Commit:  {sel.sha}\n"
+                f"Author:  {sel.author}\n"
+                f"Date:    {sel.date_iso}\n"
+                f"Title:   {sel.subject}\n"
+                f"HEAD:    {bool(sel.is_head)}\n"
+                f"Branches:{sel.branches}\n"
+            )
+        if isinstance(sel, FileHistoryRoot):
             return sel.label
         return ""
 
     def _make_tree_editor(self) -> TreeEditor:
         return TreeEditor(
             nodes=[
-                TreeNode(node_for=[BranchRoot], auto_open=True, children="branches", label="label"),
-                TreeNode(node_for=[HistoryRoot], auto_open=True, children="heads", label="label"),
-                TreeNode(node_for=[BranchOutRoot], auto_open=True, children="roots", label="label"),
-                TreeNode(node_for=[BranchNode], auto_open=False, children="commits", label="label"),
-                TreeNode(node_for=[CommitNode], auto_open=False, children="parents", label="label"),
-                TreeNode(node_for=[ForwardCommitNode], auto_open=False, children="children", label="label"),
+                TreeNode(node_for=[FileHistoryRoot], auto_open=True, children="children", label="label"),
+                TreeNode(node_for=[CommitTreeNode], auto_open=True, children="children", label="label"),
             ],
             editable=False,
             selected="selected",
-            hide_root=False,
+            hide_root=True,
         )
 
-    def _refresh_fired(self) -> None:
+    @observe("refresh")
+    def _on_refresh(self, _event) -> None:
         self.reload()
 
-    def _fail(self, e: Exception) -> None:
-        msg = f"{type(e).__name__}: {e}"
-        self.status = f"Error: {msg}"
-
-        if isinstance(e, GitError):
-            self.last_git_cmd = e.cmd
-            self.last_git_stderr = e.stderr
-        else:
-            self.last_git_cmd = ""
-            self.last_git_stderr = ""
-
-        if self.show_error_dialog:
-            details = self.last_git_cmd
-            if self.last_git_stderr:
-                details += "\n\n" + self.last_git_stderr
-            _show_error_dialog(f"{self.status}\n\n{details}".strip(), "Git tree error")
-
-        if self.crash_on_error:
+    def reload(self) -> None:
+        try:
+            self._load()
+        except Exception:
+            if self.hard_crash_on_error:
+                os._exit(1)
             raise
 
-    def reload(self) -> None:
+    def _load(self) -> None:
+        self.status = "Loading…"
+        self.tree_root = FileHistoryRoot(label="File history", children=[])
         self.selected = None
-        self.status = ""
-        self.last_git_cmd = ""
-        self.last_git_stderr = ""
 
-        repo_dir = Path(str(self.repo_path)).expanduser().resolve()
-        if not repo_dir.exists():
-            raise GitError(f"Repo path does not exist: {repo_dir}")
-
-        repo_root = _find_repo_root(repo_dir)
-
+        if not self.repo_path.strip():
+            raise GitError("Repo path is empty.")
         ps = _normalize_pathspec(self.pathspec)
         if not ps:
             raise GitError("Pathspec is empty (e.g. README.md).")
 
-        if self.mode == "Branches":
-            self._build_branches(repo_root, ps)
-        elif self.mode == "History":
-            self._build_history(repo_root, ps)
-        else:
-            self._build_branch_out(repo_root, ps)
+        repo_dir = Path(self.repo_path).expanduser().resolve()
+        if not repo_dir.exists():
+            raise GitError(f"Repo path does not exist: {repo_dir}")
+        repo_root = _find_repo_root(repo_dir)
 
-    def _build_branches(self, repo_root: Path, pathspec: str) -> None:
-        branches = _list_local_branches(repo_root)
-        bf = self.branch_filter.strip()
-        if bf:
-            branches = [b for b in branches if bf.lower() in b.lower()]
-
-        branch_nodes: TList[BranchNode] = []
-        for b in branches:
-            commits = _commits_touching_pathspec(repo_root, b, pathspec)
-            commit_nodes = [
-                CommitNode(sha=c.sha, author=c.author, date_iso=c.date_iso, subject=c.subject, parents=[], name_rev="")
-                for c in commits
-            ]
-            branch_nodes.append(BranchNode(name=b, commits=commit_nodes))
-
-        branch_nodes.sort(key=lambda bn: (-len(bn.commits), bn.name.lower()))
-        self.root = BranchRoot(branches=branch_nodes, label=f"Branches ({len(branch_nodes)})")
-        self.status = f"{repo_root} | {pathspec} | branches={len(branch_nodes)}"
-
-    def _build_history(self, repo_root: Path, pathspec: str) -> None:
-        start = self.start_ref.strip() or "HEAD"
-        rows = _log_with_parents(
+        touch_shas, touch_parents, metas, branch_labels, head_file_tip, head_branch = build_file_history_graph(
             repo_root,
-            pathspec=pathspec,
+            ps,
             max_commits=max(1, int(self.max_commits)),
-            start_ref=start,
-            all_refs=False,
+            include_remotes=bool(self.include_remotes),
         )
 
-        if not rows:
-            self.root = HistoryRoot(heads=[], label="History (parents) (0)")
-            self.status = f"{repo_root} | {pathspec} | rows=0 (no commits found from {start})"
+        if not touch_shas:
+            self.tree_root = FileHistoryRoot(label=f"File history (0) — {ps}", children=[])
+            self.status = f"{repo_root} | {ps} | no commits touching path"
             return
 
-        all_shas: TList[str] = []
-        seen: set[str] = set()
-        for sha, parents in rows:
-            if sha not in seen:
-                seen.add(sha)
-                all_shas.append(sha)
+        children_of: Dict[str, TList[str]] = {sha: [] for sha in touch_shas}
+        roots: TList[str] = []
+
+        for child in touch_shas:
+            parents = touch_parents.get(child, [])
+            if not parents:
+                roots.append(child)
             for p in parents:
-                if p not in seen:
-                    seen.add(p)
-                    all_shas.append(p)
+                if p in children_of:
+                    children_of[p].append(child)
 
-        metas = _fetch_commit_meta(repo_root, all_shas)
-        name_revs = _name_rev_map(repo_root, all_shas, include_remotes=bool(self.include_remotes)) if self.show_name_rev else {}
+        epoch_map = {sha: metas.get(sha).epoch if sha in metas else 0 for sha in touch_shas}
+        for p, kids in children_of.items():
+            kids.sort(key=lambda s: epoch_map.get(s, 0), reverse=True)
 
-        nodes: Dict[str, CommitNode] = {}
+        root_order = sorted(roots, key=lambda s: epoch_map.get(s, 0))
+        primary_root = root_order[0]
 
-        def get_node(sha: str) -> CommitNode:
-            if sha in nodes:
-                return nodes[sha]
+        if head_file_tip and head_file_tip in touch_shas:
+            cur = head_file_tip
+            seen: Set[str] = set()
+            while True:
+                if cur in seen:
+                    break
+                seen.add(cur)
+                ps_parents = touch_parents.get(cur, [])
+                if not ps_parents:
+                    primary_root = cur
+                    break
+                cur = min(ps_parents, key=lambda x: epoch_map.get(x, 0))
+
+        def build_display(sha: str, path: Set[str]) -> CommitTreeNode:
+            if sha in path:
+                m = metas.get(sha)
+                return CommitTreeNode(
+                    sha=sha,
+                    author=m.author if m else "",
+                    date_iso=m.date_iso if m else "",
+                    subject=(m.subject if m else "") + "  (cycle?)",
+                    epoch=m.epoch if m else 0,
+                    branches=", ".join(branch_labels.get(sha, [])),
+                    is_head=(sha == head_file_tip),
+                    children=[],
+                )
+            path2 = set(path)
+            path2.add(sha)
+
             m = metas.get(sha)
-            node = CommitNode(
+            node = CommitTreeNode(
                 sha=sha,
-                author=(m.author if m else ""),
-                date_iso=(m.date_iso if m else ""),
-                subject=(m.subject if m else ""),
-                parents=[],
-                name_rev=name_revs.get(sha, ""),
-            )
-            nodes[sha] = node
-            return node
-
-        for sha, parents in rows:
-            get_node(sha).parents = [get_node(p) for p in parents]
-
-        head_sha = rows[0][0]
-        self.root = HistoryRoot(heads=[get_node(head_sha)], label=f"History (parents) ({len(rows)})")
-        self.status = f"{repo_root} | {pathspec} | rows={len(rows)} | from {start}"
-
-    def _build_branch_out(self, repo_root: Path, pathspec: str) -> None:
-        start = self.start_ref.strip() or "HEAD"
-        rows = _log_with_parents(
-            repo_root,
-            pathspec=pathspec,
-            max_commits=max(1, int(self.max_commits)),
-            start_ref=start,
-            all_refs=bool(self.branch_out_all_refs),
-        )
-
-        if not rows:
-            scope = "--all" if self.branch_out_all_refs else start
-            self.root = BranchOutRoot(roots=[], label="Branch-out (children) (0)")
-            self.status = f"{repo_root} | {pathspec} | rows=0 (no commits found, scope={scope})"
-            return
-
-        node_shas = {sha for sha, _ in rows}
-
-        all_shas: TList[str] = []
-        seen: set[str] = set()
-        for sha, parents in rows:
-            if sha not in seen:
-                seen.add(sha)
-                all_shas.append(sha)
-            for p in parents:
-                if p not in seen:
-                    seen.add(p)
-                    all_shas.append(p)
-
-        metas = _fetch_commit_meta(repo_root, all_shas)
-        name_revs = _name_rev_map(repo_root, all_shas, include_remotes=bool(self.include_remotes)) if self.show_name_rev else {}
-
-        nodes: Dict[str, ForwardCommitNode] = {}
-
-        def get_node(sha: str) -> ForwardCommitNode:
-            if sha in nodes:
-                return nodes[sha]
-            m = metas.get(sha)
-            node = ForwardCommitNode(
-                sha=sha,
-                author=(m.author if m else ""),
-                date_iso=(m.date_iso if m else ""),
-                subject=(m.subject if m else ""),
+                author=m.author if m else "",
+                date_iso=m.date_iso if m else "",
+                subject=m.subject if m else "",
+                epoch=m.epoch if m else 0,
+                branches=", ".join(branch_labels.get(sha, [])),
+                is_head=(sha == head_file_tip),
                 children=[],
-                name_rev=name_revs.get(sha, ""),
             )
-            nodes[sha] = node
+            for child_sha in children_of.get(sha, []):
+                node.children.append(build_display(child_sha, path2))
             return node
 
-        children_map: Dict[str, TList[str]] = {sha: [] for sha in node_shas}
-        for child_sha, parents in rows:
-            for p in parents:
-                if p in node_shas:
-                    children_map[p].append(child_sha)
+        primary_node = build_display(primary_root, set())
 
-        for parent_sha, child_shas in children_map.items():
-            get_node(parent_sha).children = [get_node(c) for c in child_shas]
+        other_roots = [r for r in root_order if r != primary_root]
+        other_nodes = [build_display(r, set()) for r in other_roots]
 
-        roots: TList[ForwardCommitNode] = []
-        for sha, parents in rows:
-            if not any(p in node_shas for p in parents):
-                roots.append(get_node(sha))
+        label = f"File history — {ps}  (roots={len(root_order)})"
+        children: TList[TypingAny] = [primary_node]
+        if other_nodes:
+            children.append(FileHistoryRoot(label=f"Other roots ({len(other_nodes)})", children=other_nodes))
 
-        roots = list(dict.fromkeys(roots))
-        scope = "--all" if self.branch_out_all_refs else start
-        self.root = BranchOutRoot(roots=roots, label=f"Branch-out (children) ({len(rows)})")
-        self.status = f"{repo_root} | {pathspec} | rows={len(rows)} | scope={scope}"
+        self.tree_root = FileHistoryRoot(label=label, children=children)
+        self.status = (
+            f"{repo_root} | {ps} | touch_commits={len(touch_shas)} | "
+            f"head_file_tip={(head_file_tip[:10] if head_file_tip else 'none')} | "
+            f"head_branch={head_branch or 'detached'}"
+        )
 
     def traits_view(self) -> View:
-        tree_editor = self._make_tree_editor()
+        ed = self._make_tree_editor()
         return View(
             VGroup(
                 HGroup(
-                    Item("repo_path", label="Repo", editor=DirectoryEditor()),
-                    Item("pathspec", label="Git path", width=0.5),
+                    Item("repo_path", label="Repo", width=0.6),
+                    Item("pathspec", label="Pathspec", width=0.6),
                 ),
                 HGroup(
-                    Item("mode", label="Mode"),
+                    Item("include_remotes", label="Include remotes"),
+                    Item("max_commits", label="Max commits"),
                     UItem("refresh"),
-                    Item("crash_on_error", label="Crash"),
-                    Item("show_error_dialog", label="Dialog"),
+                    Item("hard_crash_on_error", label="Hard crash"),
                 ),
                 HGroup(
                     VGroup(
-                        Item("branch_filter", label="Branch filter"),
-                        visible_when='mode == "Branches"',
+                        UItem("tree_root", editor=ed, style="custom"),
                         show_border=True,
-                        label="Branches options",
-                    ),
-                    VGroup(
-                        Item("start_ref", label="Start ref"),
-                        Item("max_commits", label="Max commits"),
-                        Item("include_remotes", label="Include remotes"),
-                        Item("show_name_rev", label="Show name-rev"),
-                        visible_when='mode != "Branches"',
-                        show_border=True,
-                        label="History options",
-                    ),
-                    VGroup(
-                        Item("branch_out_all_refs", label="Use --all scope"),
-                        visible_when='mode == "Branch-out"',
-                        show_border=True,
-                        label="Branch-out options",
-                    ),
-                ),
-                HGroup(
-                    VGroup(
-                        UItem("root", editor=tree_editor, style="custom"),
-                        show_border=True,
-                        label="Tree",
+                        label="File history tree",
                     ),
                     VGroup(
                         Item("selected_details", style="readonly", show_label=False),
@@ -622,14 +550,8 @@ class AppModel(HasTraits):
                     ),
                 ),
                 Item("status", style="readonly", show_label=False),
-                VGroup(
-                    Item("last_git_cmd", style="readonly", label="Last git"),
-                    Item("last_git_stderr", style="readonly", label="stderr"),
-                    show_border=True,
-                    label="Debug",
-                ),
             ),
-            title="Git views (TraitsUI): Branches + History + Branch-out (Git pathspec)",
+            title="Git file history tree (TraitsUI)",
             width=1250,
             height=820,
             resizable=True,
@@ -637,10 +559,12 @@ class AppModel(HasTraits):
 
 
 def main() -> None:
-    model = AppModel(
-        repo_path=r"C:\home\joakimbits\normalize",
+    model = FileHistoryModel(
+        repo_path=str(Path.cwd()),
         pathspec="README.md",
-        mode="Branches",
+        include_remotes=False,
+        max_commits=2000,
+        hard_crash_on_error=True,
     )
     model.reload()
     model.configure_traits()
