@@ -264,6 +264,47 @@ def _nearest_touch_commits(
     return out
 
 
+def _tag_labels(repo_root: Path) -> Dict[str, TList[str]]:
+    """
+    commit_sha -> [tag1, tag2, ...]
+    Handles annotated tags via peeled refs in `show-ref -d`.
+    """
+    rc, out, err = _run_git(repo_root, ["show-ref", "--tags", "-d"], timeout_s=90, check=False)
+    if rc != 0:
+        raise GitError(err.strip() or "git show-ref --tags failed.", cmd="git show-ref --tags -d", stderr=err.strip())
+
+    # tag_full -> commit_sha
+    tag_to_commit: Dict[str, str] = {}
+    for ln in out.splitlines():
+        ln = ln.strip()
+        if not ln:
+            continue
+        sha, ref = ln.split(maxsplit=1)
+        sha = sha.strip()
+        ref = ref.strip()
+
+        if not ref.startswith("refs/tags/"):
+            continue
+
+        if ref.endswith("^{}"):
+            tag_full = ref[:-3]
+            tag_to_commit[tag_full] = sha
+        else:
+            # lightweight tag (or annotated tag object; will be overridden by peeled line)
+            tag_full = ref
+            tag_to_commit.setdefault(tag_full, sha)
+
+    commit_to_tags: Dict[str, TList[str]] = {}
+    for tag_full, commit_sha in tag_to_commit.items():
+        tag_name = tag_full.removeprefix("refs/tags/")
+        commit_to_tags.setdefault(commit_sha, []).append(tag_name)
+
+    for sha in commit_to_tags:
+        commit_to_tags[sha].sort(key=str.casefold)
+
+    return commit_to_tags
+
+
 def build_file_history_graph(
     repo_root: Path,
     pathspec: str,
@@ -275,6 +316,7 @@ def build_file_history_graph(
     Dict[str, TList[str]],         # touch_parents: sha -> [touch_parent_sha...]
     Dict[str, CommitMeta],         # meta for touch commits
     Dict[str, TList[str]],         # branch_labels: sha -> [branch names where sha is that branch's file-tip]
+    Dict[str, TList[str]],         # tag_labels: sha -> [tag names...]
     str,                           # head_file_tip_sha
     str,                           # head_branch
 ]:
@@ -316,10 +358,13 @@ def build_file_history_graph(
     for sha in branch_labels:
         branch_labels[sha].sort(key=str.casefold)
 
+    tags_all = _tag_labels(repo_root)
+    tag_labels = {sha: tags for sha, tags in tags_all.items() if sha in touch_set}
+
     head_branch = _head_branch(repo_root)
     head_file_tip = _head_file_tip_sha(repo_root, pathspec)
 
-    return touch_shas, touch_parents, metas, branch_labels, head_file_tip, head_branch
+    return touch_shas, touch_parents, metas, branch_labels, tag_labels, head_file_tip, head_branch
 
 
 # -----------------------------
@@ -335,18 +380,32 @@ class CommitTreeNode(HasTraits):
     epoch = Int(0)
 
     branches = Str
+    tags = Str
+
     is_head = Bool(False)
+    is_branch_head = Bool(False)
+    is_tagged = Bool(False)
 
     children = List(Any)
 
-    label = Property(Str, depends_on="sha,subject,date_iso,branches,is_head")
+    label = Property(Str, depends_on="sha,subject,date_iso,branches,tags,is_head,is_branch_head,is_tagged")
 
     def _get_label(self) -> str:
         short = self.sha[:10] if self.sha else ""
         date_part = self.date_iso[:10] if self.date_iso else ""
-        head = "  [HEAD]" if self.is_head else ""
+
+        markers = []
+        if self.is_head:
+            markers.append("HEAD")
+        if self.is_branch_head:
+            markers.append("★")
+        if self.is_tagged:
+            markers.append("🏷")
+
+        mk = f"[{' '.join(markers)}] " if markers else ""
         br = f"  [{self.branches}]" if self.branches else ""
-        return f"{short}  {date_part}  {self.subject}{head}{br}".rstrip()
+        tg = f"  <{self.tags}>" if self.tags else ""
+        return f"{mk}{short}  {date_part}  {self.subject}{br}{tg}".rstrip()
 
 
 class FileHistoryRoot(HasTraits):
@@ -387,7 +446,10 @@ class FileHistoryModel(HasTraits):
                 f"Date:    {sel.date_iso}\n"
                 f"Title:   {sel.subject}\n"
                 f"HEAD:    {bool(sel.is_head)}\n"
+                f"Tip:     {bool(sel.is_branch_head)}\n"
+                f"Tagged:  {bool(sel.is_tagged)}\n"
                 f"Branches:{sel.branches}\n"
+                f"Tags:    {sel.tags}\n"
             )
         if isinstance(sel, FileHistoryRoot):
             return sel.label
@@ -432,7 +494,15 @@ class FileHistoryModel(HasTraits):
             raise GitError(f"Repo path does not exist: {repo_dir}")
         repo_root = _find_repo_root(repo_dir)
 
-        touch_shas, touch_parents, metas, branch_labels, head_file_tip, head_branch = build_file_history_graph(
+        (
+            touch_shas,
+            touch_parents,
+            metas,
+            branch_labels,
+            tag_labels,
+            head_file_tip,
+            head_branch,
+        ) = build_file_history_graph(
             repo_root,
             ps,
             max_commits=max(1, int(self.max_commits)),
@@ -485,9 +555,13 @@ class FileHistoryModel(HasTraits):
                     subject=(m.subject if m else "") + "  (cycle?)",
                     epoch=m.epoch if m else 0,
                     branches=", ".join(branch_labels.get(sha, [])),
+                    tags=", ".join(tag_labels.get(sha, [])),
                     is_head=(sha == head_file_tip),
+                    is_branch_head=(sha in branch_labels),
+                    is_tagged=(sha in tag_labels),
                     children=[],
                 )
+
             path2 = set(path)
             path2.add(sha)
 
@@ -499,7 +573,10 @@ class FileHistoryModel(HasTraits):
                 subject=m.subject if m else "",
                 epoch=m.epoch if m else 0,
                 branches=", ".join(branch_labels.get(sha, [])),
+                tags=", ".join(tag_labels.get(sha, [])),
                 is_head=(sha == head_file_tip),
+                is_branch_head=(sha in branch_labels),
+                is_tagged=(sha in tag_labels),
                 children=[],
             )
             for child_sha in children_of.get(sha, []):
@@ -520,7 +597,8 @@ class FileHistoryModel(HasTraits):
         self.status = (
             f"{repo_root} | {ps} | touch_commits={len(touch_shas)} | "
             f"head_file_tip={(head_file_tip[:10] if head_file_tip else 'none')} | "
-            f"head_branch={head_branch or 'detached'}"
+            f"head_branch={head_branch or 'detached'} | "
+            f"tagged={len(tag_labels)}"
         )
 
     def traits_view(self) -> View:
@@ -560,7 +638,7 @@ class FileHistoryModel(HasTraits):
 
 def main() -> None:
     model = FileHistoryModel(
-        repo_path=str(Path.cwd()),
+        repo_path=r"C:\home\joakimbits\normalize",
         pathspec="README.md",
         include_remotes=False,
         max_commits=2000,
