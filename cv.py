@@ -723,8 +723,7 @@ def edit():
     proposal.edit_traits(view=proposal.traits_view)
     GUI().start_event_loop()
 
-
-if __name__ == "__main__":
+def main():
     import fire
     fire.Fire(dict(edit=edit))
 
@@ -735,3 +734,6 @@ if __name__ == "__main__":
     proposal.build_cv(cv)
     proposal.build_cover(cover)
     MarkdownBuilder(cover=cover, cv=cv)()
+
+if __name__ == "__main__":
+    main()
