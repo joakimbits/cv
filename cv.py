@@ -16,8 +16,16 @@ Styling is based on the original procedural cv.py:
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
+from email.contentmanager import maintype
 
-import regex as re
+from numpy.lib.arraysetops import union1d
+from numpy.lib.recfunctions import structured_to_unstructured
+from regex import compile
+from regex._regex_core import error as RegexError
+from os.path import splitext
+
+from pymupdf import Document as PdfDocument
 import docx
 from docx.document import Document as DocxDocument
 from docx.oxml import OxmlElement
@@ -26,13 +34,15 @@ from docx.shared import Pt, Cm, Mm, RGBColor
 from docx.enum.text import WD_BREAK
 from docx.enum.style import WD_STYLE_TYPE
 from traits.api import HasTraits, File, List, Str, Tuple
-from numpy import array, argwhere
+from traits.trait_notifiers import push_exception_handler
+from numpy import array, argwhere, sort, empty
 from traitsui.api import View, Item, HGroup, Group
 from traitsui.editors.api import ListEditor, TextEditor
 
 from ui.str_cell_editor import FlowStrEditor
 from ui.flow_list_str_editor import FlowListStrEditor
 
+push_exception_handler(reraise_exceptions=True)
 Text = Str(editor=FlowStrEditor())
 ListText = List(Str, editor=FlowListStrEditor())
 Line = Str(editor=FlowStrEditor(max_lines=1))
@@ -265,6 +275,48 @@ class BaseCV(StyledDocument, HasTraits):
     phone = Str
     linkedin_profile = Str
 
+    def __init__(self, **kwargs) -> None:
+        StyledDocument.__init__(self)
+        HasTraits.__init__(self, **kwargs)
+
+    def __iadd__(self, other):
+        """Merge other into self"""
+        old_size = getattr(self, "size", None) or 1
+        new_size = getattr(other, "size", None) or 1
+        self.size = max(old_size, new_size)
+        for attr, handler in self.traits().items():
+            if attr.endswith('_positions') or attr.endswith('_index'):
+                continue
+
+            if hasattr(other, attr):
+                old = getattr(self, attr)
+                new = getattr(other, attr)
+                if not old and not new:
+                    continue
+
+                info = handler.full_info(self, attr, None)
+                if info == 'a string':
+                    old_positions = getattr(self, attr + '_positions', array([0, old_size]))
+                    new_positions = getattr(other, attr + '_positions', array([0, new_size]))
+                    positions, value = (new_positions, new) if new else (old_positions, old)
+                    setattr(self, attr, value)
+                    setattr(self, attr + '_positions', positions)
+                elif info == 'a list of items which are a string':
+                    old_positions = list(getattr(self, attr + '_positions', [])) or list(range(len(old)))
+                    new_positions = list(getattr(other, attr + '_positions', [])) or list(range(len(new)))
+
+                    # Keep only unique values and in the same order
+                    position_values = []
+                    values = []
+                    for position, value in sorted(zip(old_positions + new_positions, old + new)):
+                        if not value in values:
+                            values.append(value)
+                            position_values.append((position, value))
+
+                    positions, values = zip(*position_values)
+                    setattr(self, attr, list(values))
+                    setattr(self, attr + '_positions', array(positions + (max(old_size, new_size),)))
+
     def add_header(self) -> None:
         # Name + subtitle in a tight block
         p = self.doc.add_heading()
@@ -315,32 +367,34 @@ class BaseCV(StyledDocument, HasTraits):
     Experience = Tuple(
         Tuple(Str, Str, Str),
         List(Text),
+        List(Text),
         List(Str),
         List(Tuple(Str, Str)))
     experience = List(Tuple(Str, List(Experience)))
 
-    LINK = re.compile(r"\[\**([^\*\]]*)\**\]\(([^)]*)\)")  # [text](url)
+    LINK = compile(r"\[\**([^\*\]]*)\**\]\(([^)]*)\)")  # [text](url)
 
     def add_experience(self) -> None:
         for heading, experience in self.experience:
             self.add_section_heading(heading.upper())
-            for (company, company_url, role), bullets, technologies, artifacts in experience:
+            for (company, company_url, role), description, bullets, technologies, artifacts in experience:
                 self.add_company_role_title(company, company_url, role)
-                for bullet in bullets:
-                    i = 0
-                    for m in self.LINK.finditer(bullet):
+                for text_method, texts in [(self.add_para, description), (self.add_bullet, bullets)]:
+                    for text in texts:
+                        i = 0
+                        for m in self.LINK.finditer(text):
+                            if i:
+                                p.add_run(text[i:m.start()])
+                            else:
+                                p = text_method(text[0:m.start()])
+
+                            self.add_hyperlink(p, *m.groups())
+                            i = m.end()
+
                         if i:
-                            p.add_run(bullet[i:m.start()])
+                            p.add_run(text[i:])
                         else:
-                            p = self.add_bullet(bullet[0:m.start()])
-
-                        self.add_hyperlink(p, *m.groups())
-                        i = m.end()
-
-                    if i:
-                        p.add_run(bullet[i:])
-                    else:
-                        self.add_bullet(bullet)
+                            text_method(text)
 
                 self.add_tech(*technologies)
                 for artifact, url in artifacts:
@@ -350,7 +404,7 @@ class BaseCV(StyledDocument, HasTraits):
 
     environment_approaches = List(Tuple(Str, List(Text)))
 
-    def add_working_approach_and_personal(self) -> None:
+    def add_working_approach(self) -> None:
         for environment, approaches in self.environment_approaches:
             self.add_section_heading(environment.upper())
             for approach in approaches:
@@ -363,7 +417,7 @@ class BaseCV(StyledDocument, HasTraits):
         self.add_profile()
         self.add_core_competence()
         self.add_experience()
-        self.add_working_approach_and_personal()
+        self.add_working_approach()
         self.save(filename)
         print(self.__class__.__name__, "saved to", filename)
 
@@ -375,7 +429,7 @@ class BaseCV(StyledDocument, HasTraits):
 class BaseCoverLetter(BaseCV):
     """Generic, neutral cover letter structure (content intentionally broad)."""
     role = Str
-    organization  = Str
+    organization = Str
     to_ask = Str
     to = Str
     location = Str
@@ -459,6 +513,56 @@ class BaseCoverLetter(BaseCV):
         print(self.__class__.__name__, "saved to", filename)
 
 
+class MatchError(RuntimeError):
+    def __init__(self, hint, pattern_name, content_name, pattern, text, start, end,
+                 match = None, troubleshooting=False) -> None:
+        hint += (
+            f"\nRemaining to match after last <?P<{match.lastgroup}>...):\n{text[match.end():]}\n" if match.end() != end else
+            f"\nTrouble with last <?P<{match.lastgroup}>...) match: {repr(text[slice(*match.regs[-1])])}\n"
+        ) if match and troubleshooting else (
+            "Remember to add back \\Z at end of this pattern after troubleshooting.\n" if troubleshooting else
+            "Temporarily remove \\Z at end of pattern to troubleshoot!\n")
+        raise SyntaxError((f"{content_name} text does not match Python https://regex101.com/\n"
+                           "FLAVOR: Python\n"
+                           f"REGULAR EXPRESSION:\n{pattern}\n"
+                           f"TEST STRING:\n{text[start:end]}\n"
+                           "- All (indented) patterns above must match with the file text.\n"
+                           f"{hint}"
+                           f"Correct {pattern_name} pattern or {content_name} content until they match.").replace(
+            '(?>', '(?:').replace(
+            r'\G', r'\A').replace(
+            r'\h', r'[^\S\n]').replace(
+            '📧', r'\U0001F4E7').replace(
+            '📱', r'\U0001F4F1').replace(
+            '🔗', r'\U0001F517'))
+
+
+def match_or_stop(pattern_name, content_name,
+                  pattern, text, start=0, end=None):
+    """Match or fail with hint
+
+    Refers to https://regex101.com for troubleshooting
+    """
+
+    end = end or len(text)
+    hint = ""
+    try:
+        match = compile(pattern).match(text, start, end, timeout=1.0)
+    except RegexError as e:
+        match = None
+        hint = '\n'.join(pattern.split('\n')[:e.lineno])
+        hint += f"\n{' ' * (e.colno - 1)}^--- {e.msg} \n"
+    except TimeoutError:
+        match = None
+        hint = "Too deep recursion in regex, split in smaller pattern chunks!\n"
+
+    troubleshooting = pattern[:4] != "(?s)" and r'\Z' not in pattern[-3:]
+    if not match or match.start() != start or match.end() != end or troubleshooting:
+        raise MatchError(hint, pattern_name, content_name, pattern, text, start, end, match, troubleshooting)
+
+    return match
+
+
 CR = "(?: <br>)"
 EOL = rf"{CR}? \n"
 SEP = rf"(?: \h* \n | \h* <br> \n | \h+)"
@@ -486,7 +590,7 @@ LETTER = rf"""
   {ask('email', EMAIL, 'Email')}?
   {ask('affiliation', TEXT, 'Affiliation')}?
   {EOL}*
-  (?: \h* (?: (?P<to_ask> To :? \h*))? (?P<to> (?: (?! {COMMA_EOL}) [^<\n#])*) {COMMA_EOL})?
+  (?: \h* (?: (?P<to_ask> To :? \h*))? (?P<to> (?> (?! {COMMA_EOL}) [^<\n#])*) {COMMA_EOL})?
   {ask('organization', TEXT, 'Organization')}?
 )
   \s*
@@ -496,17 +600,17 @@ LETTER = rf"""
   \s*
 (?P<add_intro>
   (?:
-    working \h+ with \h+ (?P<work> [^\.]*) \. |
-    With \h+ (?P<motivation> (?: (?! , \h+ (?: I | we) \h) .)*) , \h+ (?P<group> I | we) \h+ |
+    working \h+ with \h+ (?P<work> (?> [^\.]* ) ) \. |
+    With \h+ (?P<motivation> (?> (?! , \h+ (?: I | we) \h) . )* ) , \h+ (?P<group> I | we) \h+ |
     (?P=organization) | (?P=role) |
     {CHAR}
   )+ {EOL}
 )
 (?P<add_body>
-  (?: \s* ^ > \h+ (?P<arguments> (?: (?! \n\n).)*) \n\n)*
+  (?: \s* ^ > \h+ (?P<arguments> (?> (?! \n\n ) . )* ) \n\n)*
 )
 (?P<add_closing> 
-  \s* (?P<hook> (?: (?! Sincerely | Kind | Greetings | \** (?P=name) |  ^ ---+ \n) {TEXT})*) \n\n
+  \s* (?P<hook> (?> (?! Sincerely | Kind | Greetings | \** (?P=name) | ^ ---+ \n ) {TEXT} )* ) \n\n
   \s* (?: (?! \** (?P=name) | ^ ---+ \n) {TEXT} {EOL})*
   \s* \** (?P=name) \**
 )
@@ -530,13 +634,13 @@ CV = rf"""
 )
 (?P<add_profile>
     \#* \h PROFILE\n\n
-    (?: - \h (?P<profile> (?: (?! \n\n).)*) \n\n)*
+    (?: - \h (?P<profile> (?> (?! \n\n ) . )* ) \n\n)*
 )
 (?P<add_core_competence>
     \#* \h CORE \h COMPETENCE\n\n
     (?:
         \** (?P<_categories> [^:]*) : \** \n\n
-        > \h (?: (?: \h•\h)? (?P<_items> (?: (?! \h•\h | \n\n) .)*))* \n\n
+        > \h (?: (?: \h•\h)? (?P<_items> (?> (?! \h•\h | \n\n ) . )* ) )* \n\n
     )*
 )
 (?P<add_experience>
@@ -546,16 +650,17 @@ CV = rf"""
             \s* ^ \#\#\# \h \[? (?P<_companies> [^\](]*) \]?
             (?: \( (?P<_company_urls> https?:// [^\)]*) \))? \h
             (?P<_roles> [^\n]*) \n\n
-            (?: - \h (?P<_bullets> (?: (?! \n\n).)*) \n\n)*
+            (?: > \h (?! \** Technology: \** \h | → \h \[) (?P<_descriptions> (?> (?! \n\n ) . )* ) \n\n)*
+            (?: - \h (?P<_bullets> (?> (?! \n\n ) . )* ) \n\n)*
             (?: > \h \** Technology: \** \h (?: (?: ,\h)? (?P<_technologies> [^,\*]*))* \*\n\n)?
             (?: > \h → \h \[ \** (?P<_artifacts> [^\*]*) \** \] \( (?P<_artifact_urls> https?:// [^\)]*) \)\n\n)*
         )*
     )*
 )
-(?P<add_working_approach_and_personal>
+(?P<add_working_approach>
     (?:
         \s* ^ \# \h (?P<_environments> [^\n]*) \n\n
-        (?: - \h (?P<_approaches> (?: (?! \n\n).)*) \n\n)*
+        (?: - \h (?P<_approaches> (?> (?! \n\n ) . )* ) \n\n)*
     )*
 )
 """
@@ -570,6 +675,127 @@ FILE = rf"""(?mxs)
   \Z
 """
 
+INDENTED_SEPARATOR = r"""(?xs) # (?P<{name}[__{value}]>{pattern}) | .*
+    \G (?P<indent> [\ \t]* ) (
+        \( \? P <
+        (?P<name__value>
+            (?P<name> (?> (?! __ | >) . )+ )
+            (?> __ (?P<value> [^>]* ))?
+        )
+        >
+        (?P<pattern> (?> (?! \) \Z ) . )+ )
+        \)
+    |   \( \? [>:] (?P<first_of_alternatives> [^|]+ ) .*
+    |   .*
+    )\Z"""
+
+
+@dataclass
+class Separator:
+    indent: str
+    section_name: str
+    name: str = None
+    value: str = None
+    pattern: str = None
+    capture: str = None
+
+
+def variablify(s):
+    return s.strip().lower().replace(*' _').replace(*'åa').replace(*'äa').replace(*'öo')
+
+def get_separator(indented_separator) -> Separator:
+    indent, capture, section_name, name, value, pattern, first_of_alternatives = match_or_stop(
+        'INDENTED_SEPARATOR', 'indented_separator',
+         INDENTED_SEPARATOR, indented_separator).groups()
+    section_name = section_name or first_of_alternatives or variablify(capture)
+    section_name = section_name.replace(*'_ ').title().replace(' ', "")  # Unique CamelCase name
+    if value:
+        value = value.replace(*'_ ')
+
+    return Separator(indent, section_name, name, value, pattern or capture, capture)
+
+DESCRIPTIONS_AND_BULLETS = ( # (m)
+    r"(?>(?P<_descriptions>(?>^(?!• ).*\n)*?^(?!• ).*?\.[^\S\n]*)(?>\n+|(?=^• )|\Z))*"
+    r"(?>^• (?P<_bullets>.*(?>\n(?!• ).*)*)(?>\n+|\Z))*")
+
+HERMES_PDF_FILE_CHUNKS = rf"""\A(?P<name>.+)
+(?>(?P<level>Senior|Junior) )?(?P<specialities> ?(?:(?!\w+$)[\w\-])+)* ?(?P<role>\w+)
+\Z
+
+(?>MOTIVATION|MOTIVERING)
+
+\G(?>(?P<arguments>(?>(?>(?!\.\h?\n).)+\n)*.*)\n)*\Z
+
+(?P<_categories__Skills>(?>SKILLS|FÄRDIGHETER))
+
+\G(?>(?:,[\h\n])?(?P<_items>[^,]*))*
+?\Z
+
+(?P<_categories__Key_expertise>(?>PROFESSIONAL EXPERTISE|PROFESSIONELL EXPERTIS))
+
+\G(?>(?>[•,][\h\n])?(?P<_items>[^•,]*))*
+?\Z
+
+(?P<_headings__EDUCATION>(?>EDUCATIONS|UTBILDNINGAR))
+
+(?m)\G(?P<_companies>.*)
+(?P<_roles>.*
+\d\d\d\d-\d\d-\d\d - \d\d\d\d-\d\d-\d\d)
+{DESCRIPTIONS_AND_BULLETS}\Z
+
+(?P<_headings__EXPERIENCE>(?>EXPERIENCES|ERFARENHETER))
+
+\G\Z
+
+    (?P<_companies__>(?=\d\d\d\d-\d\d-\d\d\n))
+
+\G
+?(?P<_roles>\d\d\d\d-\d\d-\d\d)
+(?P<_roles___2DH_>UNTIL)
+(?P<_roles>\d\d\d\d-\d\d-\d\d)
+(?P<_roles___2DH_>ROLE|ROLL)
+(?P<_roles>(?:(?>.|
+))+)\Z
+
+    (?>COMPANY|FÖRETAG)
+
+(?m)\G(?P<_companies>.+(?:\s*[^\W\d_]+(?:\s+[^\W\d_]+){{0,2}})?)
+{DESCRIPTIONS_AND_BULLETS}\Z
+
+    (?>Technologies applied|Teknik som tillämpas)
+
+\G(?>(?>,[ \n])?(?P<_technologies>[^,]*))*\Z
+
+(?P<_categories__Conversations>(?>LANGUAGES|SPRÅK))
+
+\G(?>(?P<_items>.+
+.+)
+)+.+
+\Z"""
+
+
+hex_chars_regex = compile(r"((?>[0-9a-fA-F]{2})+)(H)")
+def name_value(s):
+    """Use _ and hexadecimal numbers to insert special characters
+
+    >>> name_value('Special3AH_2AH_2BH_2C2D2E2FH_')
+    'Special: * + ,-./ '
+    """
+    replace = [[s[0] for s in m.allspans()[1:]] for m in hex_chars_regex.finditer(s)]
+    for (start, hex_end), (hex_end, end) in reversed(replace):
+        s = s[:start] + bytes.fromhex(s[start:hex_end]).decode() + s[end:]
+
+    return s.replace(*'_ ')
+
+
+def get_key(item):
+    """Return first str in item"""
+    if isinstance(item, str):
+        return item
+
+    return get_key(item[0])
+
+
 class Proposal(BaseCoverLetter):
     """Handle an assignment proposal file
 
@@ -577,63 +803,288 @@ class Proposal(BaseCoverLetter):
     """
     file = File()
     size = int
-    _categories = _items = \
-        _headings = _companies = _company_urls = _roles = _bullets = _technologies = _artifacts = _artifact_urls = \
+    _categories = _items = _headings = \
+        _companies = _company_urls = _roles = _descriptions = _bullets = _technologies = _artifacts = _artifact_urls = \
         _environments = _approaches = List(Str)
+
+    # Assembly information for deeper traits from shallower ones, arranged by position in a proposal markdown file
+    structures = (
+        ('core_competence', [
+            ('_categories', [
+                '_items'])]),
+        ('experience', [
+            ('_headings', [(
+                ('_companies', '_company_urls', '_roles'),
+                ['_descriptions'],
+                ['_bullets'],
+                ['_technologies'],
+                [('_artifacts', '_artifact_urls')])])]),
+        ('environment_approaches', [
+            ('_environments', [
+                '_approaches'])]),
+    )
 
     # For the edit_traits() method:
     traits_view = View
     file_positions = [-1]  # Every pubic trait needs _positions so that we can sort them all into traits_view.
 
     def _file_changed(self):
-        md = open(self.file, encoding="utf-8").read()
-        self.size = len(md)
-        m = re.match(FILE, md)
-        if not m:
-            raise SyntaxError((f"{self.file} does not match Python https://regex101.com/ {FILE}"
-                               " - All (indented) patterns above must match with the file."
-                               " Correct FILE pattern or file content until they match.").replace(
-                r'\h', r'[^\S\n]').replace(
-                '📧', r'\U0001F4E7').replace(
-                '📱', r'\U0001F4F1').replace(
-                '🔗', r'\U0001F517'))
+        """Import text from a file"""
+        if hasattr(self, 'text'):
+            # Create a proposal with just the file and then merge it into the existing one
+            self += Proposal(file=self.file)
+            return
 
-        # Flat data
-        groupdict = m.groupdict()
-        for attr, handler in self.traits().items():
-            if attr in groupdict:
-                info = handler.full_info(self, attr, None)
+        ext = splitext(self.file)[1]
+        if ext == '.md':
+            self.pattern_name = 'FILE'
+            self.pattern = FILE
+            self.text = open(self.file, encoding="utf-8").read()
+        elif ext == '.pdf':
+            self.pattern_name = 'HERMES_PDF_FILE_CHUNKS'
+            self.pattern = HERMES_PDF_FILE_CHUNKS
+            self.text = "\n".join(page.get_text() for page in PdfDocument(self.file))
+        else:
+            raise NotImplementedError(ext)
+
+        # Split pattern into smaller chunks
+        pattern_chunks = self.pattern.split("\n\n")
+        section_patterns = pattern_chunks[::2]
+        indented_separators = pattern_chunks[1::2]
+
+        # Build a structured parser based on how separators are indented in the pattern
+        separators =  list(map(get_separator, indented_separators))
+        main_pattern = r"(?m)\A(?P<heading>(?>"
+        stops = []
+        for separator in separators:
+            indentation = len(separator.indent)
+            main_pattern += rf"(?!{separator.pattern}"
+            stopped = False
+            while indentation < len(stops):
+                stop = stops.pop()
+                if stop:
+                    main_pattern += rf"|{stop}|\n\n).*\n)*)*)*"
+                    stopped = True
+
+            if not stopped:
+                main_pattern += r").*\n)*)"
+
+            if indentation > len(stops):
+                assert separator.pattern
+                stops += [""] * (indentation - len(stops) - 1) + [separator.pattern]
+                main_pattern += "(?>"
+
+            main_pattern += f"{separator.capture}\n*(?P<{separator.section_name}>(?>"
+
+        main_pattern += r".*\n)*)\Z"
+
+        # Import traits from separators
+        self.size = len(self.text)
+        self.prepositions = {}
+        structure = self.parse(main_pattern)
+
+        # Import traits from chunks between separators
+        for i, (separator, section_pattern) in enumerate(zip(
+                [Separator("", 'heading')] + separators, section_patterns)):
+            for (start, end) in structure.spans(separator.section_name):
+                self.parse(section_pattern, start, end)
+
+        # Assemble deeper-structured traits from simpler ones
+        for attr, structure in self.structures:
+            values, positions = self.structured(structure)
+            setattr(self, attr, values)
+            setattr(self, attr + '_positions', positions)
+            setattr(self, attr + '_index', 0)
+
+    def parse(self, chunk_pattern, start=0, end=None):
+        """Extract traits and _positions from self.text[start:end] using named groups in chunk_pattern
+
+        Any '__' in a group name is used split it into a trait name and a tail for the value to be used instead.
+        In that case, the trait receives tail.replace(*'_ ') at all matched positions instead of the matched texts.
+        If that tail is empty (from a pure look-ahead pattern with nothing matched), the trait gets the next
+        matched value immediately after that pre-position and that next position is simply dropped.
+        """
+        match = match_or_stop(self.pattern_name, self.file,
+                              chunk_pattern, self.text, start, end)
+        group_names = list(match.groupdict())
+        coercions = [(n, n.split('__')) for n in group_names if '__' in n]
+        actuals = [n for n in group_names if '__' not in n]
+        coercers = [c[0] for c in coercions]
+        names = [c[1][0] for c in coercions]
+        coerced = [name_value(c[1][1]) for c in coercions]
+        coercer_names = dict(zip(coercers, names))
+        coercer_values = dict(zip(coercers, coerced))
+        for group_name in coercers + actuals:
+            attr = coercer_names.get(group_name, group_name)
+            trait = self.trait(attr)
+            if trait:
+                values = match.captures(group_name)
+                if not values:
+                    continue
+
+                old_values = getattr(self, attr)
+                old_positions = list(getattr(self, attr + '_positions', [])[:len(old_values)])
+
+                positions = match.starts(group_name)
+                if attr != group_name:
+                    value = coercer_values[group_name]
+                    if not value:
+                        # Pop-sorted positions for later actual values
+                        self.prepositions[attr] = list(reversed(self.prepositions.get(attr, []) + positions))
+
+                    values = [value] * len(positions)
+                else:
+                    if attr in self.prepositions:
+                        # Replace dummy values at pre-positions with values we now have
+                        prepositions = self.prepositions[attr]
+                        consumed_position_indices = []
+                        for i, position in enumerate(positions):
+                            if position < prepositions[-1]:
+                                continue
+
+                            old_values[old_positions.index(prepositions.pop())] = values[i]
+                            consumed_position_indices.append(i)
+
+                        for i in reversed(consumed_position_indices):
+                            del positions[i]
+                            del values[i]
+
+                        if not values:
+                            continue
+
+                setattr(self, attr + '_index', 0)
+                info = trait.handler.full_info(self, attr, None)
                 if info == 'a string':
-                    setattr(self, attr, m[attr] or "")
+                    assert len(positions) == 1, positions
+                    setattr(self, attr, values[0] or "")
+                    setattr(self, attr + '_positions', array([positions[0], self.size]))
                 elif info == 'a list of items which are a string':
-                    setattr(self, attr, m.captures(attr))
-                    setattr(self, attr + '_index', 0)
+                    old_positions_list = list(old_positions[:len(old_values)])
+                    positions_list, values = zip(*sorted(zip(old_positions_list + list(positions), old_values + values)))
+                    setattr(self, attr, list(values))
+                    setattr(self, attr + '_positions', array(positions_list + (self.size,)))
 
-                setattr(self, attr + '_positions', array(m.spans(attr) + [(self.size, self.size)])[:,0])
+        return match
 
-        # Structured data
-        self.core_competence, self.core_competence_positions = self.structured(
-            [('_categories', [
-                '_items'])])
-        self.experience, self.experience_positions = self.structured(
-            [('_headings', [(
-                ('_companies', '_company_urls', '_roles'),
-                ['_bullets'],
-                ['_technologies'],
-                [('_artifacts', '_artifact_urls')])])])
-        self.environment_approaches, self.environment_approaches_positions = self.structured(
-            [('_environments', [
-                '_approaches'])])
+    def structured(self, structure, span=None, attr_index=0):
+        """Return a str with one value, a tuple or a list; and the _positions span used
 
-        # Make a view for all public traits sorted by _positions[0]
-        pos_attrs = sorted([(getattr(self, attr + '_positions')[0], attr)
+        In case of a first str in the structure, the span is updated to not include the previous and next position.
+        """
+        span = span or [0, self.size]
+        if isinstance(structure, str):
+            attr = structure
+            values = getattr(self, attr)
+            if not values:
+                return '', span
+
+            if attr_index:
+                return "".join(self.unstructured(attr, span)), span
+
+            positions = getattr(self, attr + '_positions')
+            index = getattr(self, attr + '_index')
+            if index >= len(values) or positions[index] >= span[1]:
+                return '', span
+
+            span[0], span[1] = positions[index:index + 2]
+            setattr(self, attr + '_index', index + 1)
+            return values[index].replace(*'\n ').replace('  ', ''), span
+
+        if isinstance(structure, tuple):
+            items = []
+            for branch_index, branch in enumerate(structure):
+                item, span = self.structured(branch, span, branch_index)
+                assert branch_index or item
+                items.append(item)
+
+            return tuple(items), span
+
+        # List
+        item = structure[0]
+        if isinstance(item, str):
+            return self.unstructured(item, span), span
+
+        forest = []
+        first = True
+        while True:
+            try:
+                tree, span_here = self.structured(item, span[:])
+                forest.append(tree)
+                if first:
+                    span[0] = span_here[0]
+            except AssertionError:
+                return forest, span
+
+    def unstructured(self, attr, span=None):
+        """Grab all non-empty values within a position span after having removed \n"""
+        values = getattr(self, attr)
+        if not values:
+            return values
+
+        span = span or [0, self.size]
+        positions = getattr(self, attr + '_positions', [])
+        index = getattr(self, attr + '_index')
+        next_structure_index = index + argwhere(positions[index:] >= span[1])[0][0]
+        setattr(self, attr + '_index', next_structure_index)
+        values = values[index:next_structure_index]
+        for i, value in reversed(list(enumerate(values))):
+            value = value.replace(*'\n ').replace('  ', '')
+            if value:
+                values[i] = value
+            else:
+                del values[i]
+
+        return values
+
+    def __iadd__(self, other, structure=None, old=None, new=None):
+        if not structure:
+            super().__iadd__(other)
+            old = [getattr(self, attr, []) for attr, structure in self.structures]
+            new = [getattr(other, attr, []) for attr, structure in self.structures]
+            for (attr, structure), old, new in zip(self.structures, old, new):
+                setattr(self, attr, self.__iadd__(other, structure, old, new))
+
+            return
+
+        if isinstance(structure, str):
+            return new or old or ""
+
+        if isinstance(structure, tuple):
+            return tuple([self.__iadd__(other, branch, old, new) for branch, old, new in zip(structure, old, new)])
+
+        # List
+        tree = structure[0]
+        if isinstance(tree, str):
+            # Keep only unique values and in the old order, appending any unique new in the new order
+            values = []
+            for value in old + new:
+                if not value in values:
+                    values.append(value)
+
+            return values
+
+        # Use first str in each old and new data value as a key, and merge everything else where it was, or append
+        items = old[:]
+        keys = list(map(get_key, items))
+        for key, new_item in zip(map(get_key, new), new):
+            if key in keys:
+                i = keys.index(key)
+                items[i] = self.__iadd__(other, tree, items[i], new_item)
+            else:
+                items.append(new_item)
+
+        return items
+
+    def view(self):
+        """Make a view for all public traits sorted by _positions[0]"""
+        pos_attrs = sorted([(getattr(self, attr + '_positions', array([self.size]))[0], attr)
                             for attr in self.traits().keys() if self.is_view_item(attr)])
         attrs = [name for _, name in pos_attrs]
         items = [Item(name, springy=False) for name in attrs]
         splits = [attrs.index(new_group) for new_group in ('level', 'experience', 'environment_approaches')]
         group_indices = [(start, end) for start, end in zip([0] + splits, splits + [len(attrs)])]
         groups = [Group(*items[start:end]) for start, end in group_indices]
-        self.traits_view = View(HGroup(*groups),
+        return View(HGroup(*groups),
                                 title="Proposal", resizable=True, buttons=["OK"],
                                 x=0, y=0, width=1.0, height=1.0)
 
@@ -649,83 +1100,35 @@ class Proposal(BaseCoverLetter):
         for cls in type(self).__mro__:
             if hasattr(cls, 'class_traits'):
                 somewhere = attr in cls.class_traits()
-                if cls.__module__ == "__main__":
+                if cls.__module__ in ('__main__', 'cv'):
                     here |= somewhere
                 else:
                     here &= not somewhere
 
         return here
 
-    def structured(self, structure, span=None):
-        """Return a str with one value, a tuple or a list; and the _positions span used
 
-        In case of a str, the span is updated to not include the previous and next one.
-        """
-        span = span or [0, self.size]
-        if isinstance(structure, str):
-            values = getattr(self, structure)
-            positions = getattr(self, structure + '_positions')
-            index = getattr(self, structure + '_index')
-            if positions[index] >= span[1]:
-                return '', span
-
-            span[0], span[1] = positions[index:index + 2]
-            setattr(self, structure + '_index', index + 1)
-            return values[index], span
-
-        if isinstance(structure, tuple):
-            items = []
-            for branch_index, branch in enumerate(structure):
-                item, span = self.structured(branch, span)
-                assert branch_index or item
-                items.append(item)
-
-            return tuple(items), span
-
-        # List
-        item = structure[0]
-        if isinstance(item, str):
-            values = getattr(self, item)
-            positions = getattr(self, item + '_positions')
-            index = getattr(self, item + '_index')
-            next_structure_index = index + argwhere(positions[index:] >= span[1])[0][0]
-            setattr(self, item + '_index', next_structure_index)
-            values = values[index:next_structure_index]
-            if values and not values[-1]:
-                del values[-1]
-
-            return values, span
-
-        forest = []
-        first = True
-        while True:
-            try:
-                tree, span_here = self.structured(item, span[:])
-                forest.append(tree)
-                if first:
-                    span[0] = span_here[0]
-            except AssertionError:
-                return forest, span
+proposal = Proposal(file='cover_and_cv.md')
 
 
-proposal = Proposal()
-try:
-    proposal.file = 'cover_and_cv.md'
-except FileNotFoundError:
-    pass
+def propose(*files, edit=False):
+    global proposal
 
-def edit():
     try:
         from pyface.api import GUI
     except ImportError:
         raise ImportError("pip install pyside6<6.6  # Only available in Python <3.11")
 
-    proposal.edit_traits(view=proposal.traits_view)
+    for file in files:
+        # Import over existing content, keeping original order
+        proposal.file = file
+
+    proposal.edit_traits(view=proposal.view())
     GUI().start_event_loop()
 
 def main():
     import fire
-    fire.Fire(dict(edit=edit))
+    fire.Fire(propose)
 
     from build_cover_letter_and_cv_markdown import MarkdownBuilder
 
@@ -734,6 +1137,7 @@ def main():
     proposal.build_cv(cv)
     proposal.build_cover(cover)
     MarkdownBuilder(cover=cover, cv=cv)()
+
 
 if __name__ == "__main__":
     main()
