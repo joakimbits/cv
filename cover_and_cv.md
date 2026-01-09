@@ -1,20 +1,22 @@
 Joakim Pettersson<br>Dalby, Sweden<br>+46 708 29 99 74<br>joakim.pettersson@ict.eu<br>Consultant via ICT Additude AB<br><br>To the hiring committee,<br>your organisation
-# Application for Control Systems Engineer
-I am writing to express my interest in supporting your organisation as Control Systems Engineer working with real-time control, embedded systems and practical engineering. With a background spanning PLC-scale sequencing, microsecond MCU control and FPGA-based signal paths, I am comfortable working directly with hardware, instrumentation and timing-sensitive systems. Therefore, I believe I can contribute from day one:
+# Application for Temporary Research Engineer
+I am writing to express my interest in supporting your organisation as Temporary Research Engineer working with real-time control, embedded systems and practical engineering. With a background spanning PLC-scale sequencing, microsecond MCU control and FPGA-based signal paths, I believe I can contribute from day one:
 > Throughout my career I have worked close to both hardware and software, bridging electronics, motion systems, data acquisition and automation with Python- and C/C++-based tooling. I enjoy stabilising complex setups, making behaviour observable and building small tools that help others understand and trust the systems they use.
 > I am comfortable collaborating with cross-disciplinary teams, from field engineers and operators to researchers and product managers. I value clear communication, measurement-driven validation and a pragmatic approach to improving systems without losing sight of long-term maintainability.
 > In addition to development work, I am fully comfortable with routine maintenance, operational stability and user-facing engineering tasks. I enjoy supporting colleagues in instrumentation environments, tracing issues through hardware, firmware and Python/C-based automation layers to maintain reliable operation.
+> At ESS I worked with Python integration for detectors and radiation-monitoring equipment, EMI auditing, reflection-free signal conditioning and commissioning of beam-adjacent instrumentation. This experience transfers directly to BioMAX operations and to supporting scientists in an operational beamline environment.
 I live in Dalby and can be available on short notice. I would welcome the opportunity to discuss how my background could support your team.
 Kind regards,<br>**Joakim Pettersson**
 ---
 
 # Joakim Pettersson
-Senior Embedded & Real-time Control Systems Engineer – Automotive, Energy & eMobility
+Senior Embedded & Real-time Temporary Research Engineer – Automotive, Energy & eMobility
 📧 joakim.pettersson@ict.eu 📱 +46 708 29 99 74 🔗 [**linkedin.com/in/joakimbits**](https://www.linkedin.com/in/joakimbits/)
 # PROFILE
 - Experienced in embedded C/C++, Python, PLC→MCU→FPGA timing, and EMI-robust real-time control.
 - Background includes motion systems, power electronics and HVAC configuration tools.
 - Comfortable with maintenance, operational stability and user-facing engineering work.
+- Experience working in radiation-exposed and EMI-sensitive environments at ESS, including signal-chain conditioning, detector integration, commissioning tasks, and stabilisation of complex experimental setups.
 # CORE COMPETENCE
 **Hardware Architectures:**
 > ARM • Intel x86 • PowerPC • Altera • Xilinx
