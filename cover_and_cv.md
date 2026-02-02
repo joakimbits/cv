@@ -1,46 +1,55 @@
-Joakim Pettersson<br>Dalby, Sweden<br>+46 708 29 99 74<br>joakim.pettersson@ict.eu<br>Consultant via ICT Additude AB<br><br>To the hiring committee,<br>your organisation
-# Application for Control Systems Engineer
-I am writing to express my interest in supporting your organisation as Control Systems Engineer working with real-time control, embedded systems and practical engineering. With a background spanning PLC-scale sequencing, microsecond MCU control and FPGA-based signal paths, I am comfortable working directly with hardware, instrumentation and timing-sensitive systems. Therefore, I believe I can contribute from day one:
-> Throughout my career I have worked close to both hardware and software, bridging electronics, motion systems, data acquisition and automation with Python- and C/C++-based tooling. I enjoy stabilising complex setups, making behaviour observable and building small tools that help others understand and trust the systems they use.
-> I am comfortable collaborating with cross-disciplinary teams, from field engineers and operators to researchers and product managers. I value clear communication, measurement-driven validation and a pragmatic approach to improving systems without losing sight of long-term maintainability.
-> In addition to development work, I am fully comfortable with routine maintenance, operational stability and user-facing engineering tasks. I enjoy supporting colleagues in instrumentation environments, tracing issues through hardware, firmware and Python/C-based automation layers to maintain reliable operation.
-I live in Dalby and can be available on short notice. I would welcome the opportunity to discuss how my background could support your team.
+Joakim Pettersson<br>Dalby, Sweden<br>+46 708 29 99 74<br>joakimbits@gmail.com<br>Available now<br><br>To the hiring committee,<br>your organisation
+# Application for DevSecOps Engineer
+I am writing to express my interest in supporting your organisation as DevSecOps Engineer working with CI and test services. With a background spanning embedded software, distributed systems and secure, reproducible delivery in safety-critical and regulated environments, I believe I can contribute from day one:
+> Throughout my career I have worked close to production systems, building and maintaining CI-driven pipelines for testing, verification and release of embedded and distributed software. I combine hands-on development in Python, C/C++ and Linux with a strong focus on reproducibility, traceability and long-term maintainability of platforms used by multiple development teams.
+> I have contributed to security-relevant development in automotive and infrastructure contexts, including industrialisation of CAN intrusion detection features, compliance-sensitive distributed systems, and audit-driven stabilisation of complex installations. I am comfortable collaborating across development, test, electronics and security stakeholders, and in supporting teams by making system behaviour observable, explainable and trustworthy.
+Based in Dalby, I am available on short notice and would welcome the opportunity to discuss how my experience could support your central software and security engineering efforts.
 Kind regards,<br>**Joakim Pettersson**
 ---
 
 # Joakim Pettersson
-Senior Embedded & Real-time Control Systems Engineer – Automotive, Energy & eMobility
-📧 joakim.pettersson@ict.eu 📱 +46 708 29 99 74 🔗 [**linkedin.com/in/joakimbits**](https://www.linkedin.com/in/joakimbits/)
+Senior Embedded & Real-time DevSecOps Engineer – Embedded, Distributed & Safety-Critical Systems
+📧 joakimbits@gmail.com 📱 +46 708 29 99 74 🔗 [**linkedin.com/in/joakimbits**](https://www.linkedin.com/in/joakimbits/)
 # PROFILE
-- Experienced in embedded C/C++, Python, PLC→MCU→FPGA timing, and EMI-robust real-time control.
-- Background includes motion systems, power electronics and HVAC configuration tools.
-- Comfortable with maintenance, operational stability and user-facing engineering work.
+- Senior software engineer working across embedded, distributed and infrastructure-adjacent systems in safety-critical environments.
+- Strong focus on CI/CD, test automation, reproducible builds and long-lived system maintainability.
+- Comfortable operating close to production systems where correctness, traceability and reliability are essential.
 # CORE COMPETENCE
-**Hardware Architectures:**
-> ARM • Intel x86 • PowerPC • Altera • Xilinx
-**Software & Systems:**
-> Python • Linux • RTOS • C/C++ • CAN / J1939 / CANopen • BLE / Wi-Fi • UDP / TCP/IP / MQTT • ML / AI • DevSecOps • EMC
-**Key expertise:**
-> Real-time control • Connectivity • Sensor fusion • Algorithm integration • Cloud & mobile interaction
+**Software, Delivery & DevSecOps:**
+> Python • C/C++ • Linux • Git • CI/CD • Test automation • Reproducible builds • Jenkins • Docker • Make
+**Systems & Platforms:**
+> Embedded Linux • RTOS • ARM • Distributed systems • Multi-MCU platforms
+**Security, Compliance & Reliability:**
+> Secure development practices • Audits • Compliance • EMC • Safety-critical systems • Failure analysis
+**Connectivity:**
+> CAN / J1939 / CANopen • BLE • Wi-Fi • TCP/IP • MQTT
 # EXPERIENCE
 ### [Elonroad](https://www.elonroad.com/) (2025) – Software Developer, Lund
-- Collaborated with firmware, electronics and control engineers to improve real-time performance and timing guarantees in motion-control and sensors for electric-road charging infrastructure.
-- Introduced SI-unit scaling and coordinate consistency across software and hardware to align motion tracking, communication and physical geometry.
-- Integrated the J1939 CAN framework to synchronize tracker, charger and vehicle communication, and redesigned harness and switch placement to reduce EMI and cabling cost.
+- Integrated J1939 CAN communication and improved timing guarantees in a multi-MCU automotive platform.
+- Improved system reliability through unit scaling, geometry consistency and EMI-aware integration.
 > ***Technology:** C, Python, CMake, STM32CubeMX, CANopen, J1939*
 > → [**J1939 signaling in heavy vehicles**](https://www.linkedin.com/in/joakimbits/overlay/1758097448773/single-media-viewer)
-### Sandvine / Dover / Assa Abloy / deWiz / Blodtrycksdoktorn / ESS (–2024) – Dependable systems engineer
-- Other assignments within telecom and sensors, enabling reliable signalling and automated test/CI.
+### Dover / Assa Abloy / deWiz / Blodtrycksdoktorn / ESS (–2024) – Dependable systems engineer, freelance
+- Shorter assignments focused on reliability, test automation and system integration.
+> ***Technology:** Python, Linux, Git, CI, Make, EMC, Distributed systems, Instrumentation, Audits, Compliance*
+### [AppLogic Networks](https://www.applogicnetworks.com/) (2018–2021) – Senior Software Developer
+- Developed and maintained security- and compliance-sensitive distributed systems in production.
+- Investigated production issues across software, configuration and deployment layers.
+> ***Technology:** Python, C/C++, Linux, Git, CI/CD, Distributed systems, GDPR, Docker*
+### [ETAS](https://www.etas.com/) (2017) – Senior embedded developer, freelance
+- Worked on industrialisation of new CAN intrusion detection features.
+- Development of a continuous build–deployment–verification–report–release system for firmware.
+> ***Technology:** Technology: CAN, Compliance, Embedded C, Make, Technical documentation, Testing and QA*
 ### [SiB Solutions](https://www.sibsolutions.com/) (2022–2023) – Technical Lead, AI Camera Systems
-- Re-engineered AI/ML pipeline on EdgeTPU for small-object detection; automated deterministic model training and CI testing.
+- Built deterministic ML pipelines with CI-driven training, testing and deployment.
 > ***Technology:** TensorFlow, Python, Docker, Git*
 > → [**Detect objects in objects (2023)**](https://www.linkedin.com/in/joakimbits/details/experience/1713969601372/single-media-viewer)
-### [MyFC](https://fkg.se/volymproduktion-nasta-for-fuel-cell-technology-sweden/) (2022) – Senior Embedded Developer – Fuel-Cell Electronics
+### [MyFC](https://fkg.se/volymproduktion-nasta-for-fuel-cell-technology-sweden/) (2022) – Senior Embedded Developer – Fuel-Cell Electronics, freelance
 - Implemented synchronous ADC sampling and cell-group self-identification logic for safe and stable fuel-cell stack control.
 - Contributed to EMC- and thermally-informed layout decisions, improving measurement reliability.
 > ***Technology:** C, FreeRTOS, Python, Altium, KiCad*
-### [Join Business & Technology](https://www.join.se/) (2011–2018) – Systems Engineering Consultant, Lund
-- Delivered embedded control and measurement systems for [**Orbital Systems**](https://www.orbital-systems.se/), [**Baxter**](https://www.baxter.se/), [**Sensefarm**](https://www.sensefarm.com/), [**Luda.farm**](https://www.luda.farm/product/luda-fence/), [**ETAS**](https://www.etas.com/) and [**Swegon**](https://www.swegon.com/)
+### [Join Business & Technology](https://www.join.se/) (2011–2018) – Systems Engineering Consultant, freelance
+- Delivered embedded control and measurement systems for [**Orbital Systems**](https://www.orbital-systems.se/), [**Baxter**](https://www.baxter.se/), [**Sensefarm**](https://www.sensefarm.com/), [**Luda.farm**](https://www.luda.farm/product/luda-fence/) and [**Swegon**](https://www.swegon.com/)
 > ***Technology:** Micropython, C/C++, LabVIEW, Make, Git, Excel automation*
 > → [**Fluid Test Bench (2014)**](https://www.linkedin.com/in/joakimbits/overlay/experience/266729404/multiple-media-viewer/?treasuryMediaId=1717417923021)
 > → [**SE542440C2 – Sound valve speaker for regulating pressure (2020)**](https://joakimbits.github.io/cv/audio/sound-valve-speaker.html)
@@ -57,17 +66,11 @@ Senior Embedded & Real-time Control Systems Engineer – Automotive, Energy & eM
 > → [**Hydrogen storage alternatives (1999)**](https://www.linkedin.com/in/joakimbits/details/experience/142498903/multiple-media-viewer?treasuryMediaId=1717429329019)
 # EDUCATION & RESEARCH
 ### [Ph.D. studies in Applied Solid-State Physics – Chalmers University of Technology, Gothenburg](http://www.chalmers.se/mc2/EN/laboratories/quantum-device-physics/research/experimental-mesoscopic) (1992–1996, unexamined)
-- Conducted doctoral research on nano-fabrication, quantum waveguides and single-electron transistors within the Low-temperature Physics group.
 > → [**Conductance oscillations in quantum dots, Phys. Rev. B / Physica B (1994–1996)**](https://iopscience.iop.org/article/10.1088/0953-8984/7/19/007)
 > → [**Extending the high-frequency limit of a single-electron transistor, Phys. Rev. B (1996)**](https://www.researchgate.net/publication/13306616_Extending_the_high-frequency_limit_of_a_single-electron_transistor_by_on-chip_impedance_transformation)
 > → [**Submicron air-bridge interconnection process, J. Vac. Sci. Technol. B (1997)**](https://www.researchgate.net/publication/249510567_Submicron_air-bridge_interconnection_process_for_complex_gate_geometries)
 ### [M.Sc. Engineering Physics – Chalmers University of Technology, Gothenburg](https://www.gu.se/en/study-gothenburg/physics-masters-programme-n2phy) (1986–1992)
-- Thesis on nanofabrication with studies spanning mathematics, physics, chemistry and medicine.
-# MENTORSHIP & COLLABORATION
-- Collaborative, analytical and dependable in cross-disciplinary environments.
-- Prefers small reproducible setups, clear interfaces and measurement-driven validation.
-- Bridges hardware, embedded and data teams so decisions remain explainable across domains.
 # PERSONAL
-- Based in southern Sweden and living an RnDIY life in Dalby. Father of three daughters (12, 18 and 23).
+- Based in southern Sweden and living an RnDIY life in Dalby. Father of three daughters (13, 19 and 23).
 - Enjoys hands-on projects, sailing, cycling a Quattrovelo, and playing string instruments.
 - Values craftsmanship, sustainability and curiosity — the same principles that guide professional work.
