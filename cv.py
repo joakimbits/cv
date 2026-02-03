@@ -19,8 +19,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from email.contentmanager import maintype
 
-from numpy.lib.arraysetops import union1d
-from numpy.lib.recfunctions import structured_to_unstructured
 from regex import compile
 from regex._regex_core import error as RegexError
 from os.path import splitext
@@ -771,7 +769,7 @@ HERMES_PDF_FILE_CHUNKS = rf"""\A(?P<name>.+)
 \G(?>(?P<_items>.+
 .+)
 )+.+
-\Z"""
+\Zs"""
 
 
 hex_chars_regex = compile(r"((?>[0-9a-fA-F]{2})+)(H)")
