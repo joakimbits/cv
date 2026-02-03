@@ -3,6 +3,7 @@ pyside6<6.6  # Only available in Python <3.11
 numpy<2
 
 # for all other usage
+regex
 python-docx
 python-pptx
 traitsui
