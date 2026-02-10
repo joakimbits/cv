@@ -487,7 +487,7 @@ class BaseCoverLetter(BaseCV):
     def add_intro(self) -> None:
         self.doc.add_paragraph(
             f"I am writing to express my interest in supporting {self.organization} as {self.role} "
-            f"working with {self.work}. With {self.motivation}, I believe I can contribute from day one:"
+            f"working with {self.work}. With {self.motivation}, I believe I can contribute early and meaningfully:"
         )
 
     def add_body(self) -> None:
