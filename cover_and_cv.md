@@ -14,12 +14,10 @@ Senior Embedded & Real-time Complex Systems Engineer – Energy, Connectivity & 
 📧 joakim.pettersson@join.se 📱 +46 708 29 99 74 🔗 [**linkedin.com/in/joakimbits**](https://www.linkedin.com/in/joakimbits/)
 # PROFILE
 - Embedded and real-time engineering at the boundary between software, electronics, and physical processes.
-- Long-lived, correctness- and energy-constrained platforms across sensing, control, and embedded software.
-- Designing behaviour to be observable and diagnosable through instrumentation, test, and tooling.
-- Platform evolution with an emphasis on stability, controlled change, and long-term maintainability.
-- Creative problem solving within hard constraints such as power, timing, safety, EMC, and regulatory requirements.
-- Engineering in close contact with users and operators, ensuring solutions are usable and adopted in practice.
-- Complex and distributed architectures, including connectivity, real-time communication, and performance-critical pipelines.
+- Long-lived, correctness- and energy-constrained platforms, including sensing, control, and embedded software under safety, EMC, and regulatory constraints.
+- Designing behaviour to be observable, diagnosable, and testable through instrumentation, tooling, and structured validation.
+- Hands-on embedded C/C++ and Python development with deep understanding of real-time communication, sensor integration, and low-power control.
+- Engineering in close contact with users and operators to ensure solutions are usable, dependable, and evolve safely in operation.
 # CORE COMPETENCE
 **Architectures:**
 > Linux • RTOS • ARM • Intel x86 • PowerPC • Altera • Xilinx
