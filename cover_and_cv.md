@@ -13,12 +13,13 @@ Kind regards,<br>**Joakim Pettersson**
 Senior Embedded & Real-time Complex Systems Engineer – Energy, Connectivity & Automation
 📧 joakim.pettersson@join.se 📱 +46 708 29 99 74 🔗 [**linkedin.com/in/joakimbits**](https://www.linkedin.com/in/joakimbits/)
 # PROFILE
-- Specialises in stabilising complex technical systems under real-world constraints by making behaviour observable, diagnosable and testable across hardware, firmware, software and process boundaries.
-- Experience spans multiple industries and application domains, with a consistent focus on systems where software interacts tightly with hardware, signals and physical processes.
-- Comfortable with routine maintenance and operational support when that is what the system needs, and I do not assume that every problem requires a novel solution.
-- Skilled in bridging hardware and software domains to ensure reliable, reproducible system behaviour from prototype to production.
-- Combines hands-on embedded C/C++ and Python development with deep understanding of real-time communication, sensor integration and low-power control.
-- Long experience designing electronic circuitry, test rigs and hardware-in-the-loop systems to stimulate, observe and validate physical behaviour during development and production.
+- Embedded and real-time engineering at the boundary between software, electronics, and physical processes.
+- Long-lived, correctness- and energy-constrained platforms across sensing, control, and embedded software.
+- Designing behaviour to be observable and diagnosable through instrumentation, test, and tooling.
+- Platform evolution with an emphasis on stability, controlled change, and long-term maintainability.
+- Creative problem solving within hard constraints such as power, timing, safety, EMC, and regulatory requirements.
+- Engineering in close contact with users and operators, ensuring solutions are usable and adopted in practice.
+- Complex and distributed architectures, including connectivity, real-time communication, and performance-critical pipelines.
 # CORE COMPETENCE
 **Architectures:**
 > Linux • RTOS • ARM • Intel x86 • PowerPC • Altera • Xilinx
