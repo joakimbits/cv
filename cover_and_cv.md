@@ -21,14 +21,14 @@ Senior Embedded & Real-time Complex Systems Engineer – Energy, Connectivity & 
 # CORE COMPETENCE
 **Architectures:**
 > Linux • RTOS • ARM • Intel x86 • PowerPC • Altera • Xilinx
-**Tools and methods:**
-> Python • C/C++ • ECAD (Altium, KiCad) • Instrumentation & measurement • Hardware-in-the-loop • EMC
-**Standards:**
-> BLE • Wi-Fi • 3GPP • GPS / GNSS • UDP / TCP/IP • CAN / J1939 / CANopen • FCC / CE
-**Key expertise:**
-> Timing and determinism across PLC, MCU and FPGA-based systems • Real-time control • Connectivity • Sensor fusion • Algorithm integration • Cloud & mobile interaction • Embedded platform and product design • Business and team development • Math • Physics • Chemistry • Complex systems • Machine learning
-**Conversations:**
-> English C2 • German B1 • Swedish Native • Swahili A1 • Spanish A1
+**Implementation:**
+> C/C++ • Python • ECAD (Altium, KiCad) • Instrumentation & measurement • Hardware-in-the-loop • EMC
+**Standards & compliance:**
+> BLE • Wi-Fi • 3GPP • GPS/GNSS • UDP/TCP-IP • CAN/J1939/CANopen • FCC • CE
+**System characteristics:**
+> Timing & determinism • Real-time control • Sensor systems • Low-power design • Embedded platforms • Automation & control • Test & validation • Manufacturing & field operation
+**Foundations:**
+> Mathematics • Physics • Chemistry • Complex systems • Algorithmic analysis • Machine learning • Cloud/mobile interaction • Business & team development
 # EXPERIENCE
 ### [Elonroad](https://www.elonroad.com/) (2025-02-10 - 2025-04-30) - Software Developer 
 > Hardware integration, driver implementations and software bring-ups within a SMT32 heterogenous-MCU software platform development team.
