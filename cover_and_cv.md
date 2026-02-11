@@ -1,10 +1,8 @@
 Joakim Pettersson<br>Dalby, Sweden<br>+46 708 29 99 74<br>joakim.pettersson@join.se<br>Available now<br><br>To the hiring committee,<br>your organisation
 # Application for Complex Systems Engineer
 I am writing to express my interest in supporting your organisation as Complex Systems Engineer working with design and maintenance of wireless, embedded and distributed systems. With a solid experience designing software and electronics for sensing, control and machine learning, I believe I can contribute early and meaningfully:
-> I work at the boundary where software meets physical reality.
-> I’m drawn to long-lived, correctness- and energy-constrained systems, where behaviour must be made explicit to be trusted.
-> I’ve also learned that these constraints are often what enable the most creative solutions — but only if the system is introduced in a way that is immediately usable by the people who rely on it in their work.
-> I specialize in making complex systems observable, stable, and evolvable.
+> I work at the boundary where software and electronics meet physical reality. I am drawn to systems that must endure in operation.
+> I use software and machine learning to extend their capabilities as requirements change. Requirements evolve, but physical systems often have more to give.
 I live in Dalby and can be available on short notice. I would welcome the opportunity to discuss how my background could support your team.
 Kind regards,<br>**Joakim Pettersson**
 ---
@@ -13,11 +11,9 @@ Kind regards,<br>**Joakim Pettersson**
 Senior Embedded & Real-time Complex Systems Engineer – Energy, Connectivity & Automation
 📧 joakim.pettersson@join.se 📱 +46 708 29 99 74 🔗 [**linkedin.com/in/joakimbits**](https://www.linkedin.com/in/joakimbits/)
 # PROFILE
-- Trusted embedded and real-time platforms in real-world operation. Software, electronics, and physical processes.
-- Long-lived, correctness- and energy-constrained products. Reliability over full lifecycles.
-- Observable and stable platforms under continuous change. Controlled evolution in production.
-- Hands-on embedded C/C++ and Python development. Sensors, communication, low-power control.
-- User-proximate engineering. Adoption, dependability, sustained operation.
+- Embedded, real-time systems where software and electronics meet physical reality.
+- Using software, algorithms, and machine learning to evolve the capabilities of physical systems over time.
+- Hands-on engineering from electronic design through embedded software to system architecture and behavior.
 # CORE COMPETENCE
 **Architectures:**
 > Linux • RTOS • ARM • Intel x86 • PowerPC • Altera • Xilinx
