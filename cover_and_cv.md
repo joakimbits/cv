@@ -12,8 +12,8 @@ Senior Senior Embedded & Complex Systems Engineer – Energy, Connectivity & Aut
 📧 joakim.pettersson@join.se 📱 +46 708 29 99 74 🔗 [**linkedin.com/in/joakimbits**](https://www.linkedin.com/in/joakimbits/)
 # PROFILE
 - Engineering where software and electronics meet physical reality, structured through clear interfaces and modular design.
-- Algorithms and modelling embedded directly in sensing, control, and communication systems.
-- Using embedded machine learning and feedback to enable adaptive behavior.
+- Algorithms and modelling embedded directly in sensing, control, and communication systems, supporting sensor fusion and field diagnosis.
+- Using embedded machine learning and feedback to enable adaptive behavior in deployed systems.
 # CORE COMPETENCE
 **Platforms & Architectural Stack:**
 > ARM Cortex-M (STM32, NXP LPC, Nordic nRF52833) • ESP32 / ESP32-C3 • Intel x86 / Xeon (MMU, PMU & VT-x virtualization) • PowerPC 750 • FPGA (Xilinx Spartan-3E, Altera MAX) • Linux • FreeRTOS • Micropython • LabVIEW RT • Bare-metal & HAL-based design
