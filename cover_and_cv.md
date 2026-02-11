@@ -1,6 +1,6 @@
 Joakim Pettersson<br>Dalby, Sweden<br>+46 708 29 99 74<br>joakim.pettersson@join.se<br>Available now<br><br>To the hiring committee,<br>your organisation
-# Application for Complex Systems Engineer
-I am writing to express my interest in supporting your organisation as Complex Systems Engineer working with design and maintenance of wireless, embedded and distributed systems. With a solid experience designing software and electronics for sensing, control and machine learning, I believe I can contribute early and meaningfully:
+# Application for Senior Embedded & Complex Systems Engineer
+I am writing to express my interest in supporting your organisation as Senior Embedded & Complex Systems Engineer working with design and maintenance of wireless, embedded and distributed systems. With long-standing experience designing software and electronics for sensing, control and systems operating in the field, I believe I can contribute early and meaningfully:
 > I work at the boundary where software and electronics meet physical reality. I am drawn to systems that must endure in operation.
 > I use software and machine learning to extend their capabilities as requirements change. Physical systems often have more to give than initial requirements assume. When requirements change, what else might evolve?
 I live in Dalby and can be available on short notice. I would welcome the opportunity to discuss how my background could support your team.
@@ -8,7 +8,7 @@ Kind regards,<br>**Joakim Pettersson**
 ---
 
 # Joakim Pettersson
-Senior Embedded & Real-time Complex Systems Engineer – Energy, Connectivity & Automation
+Senior Senior Embedded & Complex Systems Engineer – Energy, Connectivity & Automation
 📧 joakim.pettersson@join.se 📱 +46 708 29 99 74 🔗 [**linkedin.com/in/joakimbits**](https://www.linkedin.com/in/joakimbits/)
 # PROFILE
 - Engineering where software and electronics meet physical reality, structured through clear interfaces and modular design.
