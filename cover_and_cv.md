@@ -11,9 +11,9 @@ Kind regards,<br>**Joakim Pettersson**
 Senior Embedded & Real-time Complex Systems Engineer – Energy, Connectivity & Automation
 📧 joakim.pettersson@join.se 📱 +46 708 29 99 74 🔗 [**linkedin.com/in/joakimbits**](https://www.linkedin.com/in/joakimbits/)
 # PROFILE
-- Embedded, real-time systems where software and electronics meet physical reality.
-- Using software, algorithms, and machine learning to evolve the capabilities of physical systems over time.
-- Hands-on engineering from electronic design through embedded software to system architecture and behavior.
+- Engineering where software and electronics meet physical reality, structured through clear interfaces and modular design.
+- Algorithms and modelling embedded directly in sensing, control, and communication systems.
+- Using embedded machine learning and feedback to enable adaptive behavior.
 # CORE COMPETENCE
 **Architectures:**
 > Linux • RTOS • ARM • Intel x86 • PowerPC • Altera • Xilinx
