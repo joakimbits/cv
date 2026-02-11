@@ -15,8 +15,8 @@ Senior Embedded & Real-time Complex Systems Engineer – Energy, Connectivity & 
 - Algorithms and modelling embedded directly in sensing, control, and communication systems.
 - Using embedded machine learning and feedback to enable adaptive behavior.
 # CORE COMPETENCE
-**Architectures:**
-> ARM Cortex-M (STM32, NXP LPC, Nordic nRF52833) • ESP32 / ESP32-C3 • Intel x86 / Xeon • PowerPC 750 • FPGA (Xilinx Spartan-3E, Altera MAX)
+**Platforms & Architectural Stack:**
+> ARM Cortex-M (STM32, NXP LPC, Nordic nRF52833) • ESP32 / ESP32-C3 • Intel x86 / Xeon (MMU, PMU & VT-x virtualization) • PowerPC 750 • FPGA (Xilinx Spartan-3E, Altera MAX) • Linux • FreeRTOS • Micropython • LabVIEW RT • Bare-metal & HAL-based design
 **Implementation:**
 > C/C++ • Python • ECAD (Altium, KiCad) • Instrumentation & measurement • Hardware-in-the-loop • EMC
 **Standards & compliance:**
