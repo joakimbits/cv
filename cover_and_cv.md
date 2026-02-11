@@ -1,6 +1,6 @@
 Joakim Pettersson<br>Dalby, Sweden<br>+46 708 29 99 74<br>joakim.pettersson@join.se<br>Available now<br><br>To the hiring committee,<br>your organisation
-# Application for Senior Embedded & Complex Systems Engineer
-I am writing to express my interest in supporting your organisation as Senior Embedded & Complex Systems Engineer working with design and maintenance of wireless, embedded and distributed systems. With long-standing experience designing software and electronics for sensing, control and systems operating in the field, I believe I can contribute early and meaningfully:
+# Application for Embedded & Complex Systems Engineer
+I am writing to express my interest in supporting your organisation as Embedded & Complex Systems Engineer working with design and maintenance of wireless and distributed systems. With long-standing experience designing software and electronics for sensing, control and systems operating in the field, I believe I can contribute early and meaningfully:
 > I work at the boundary where software and electronics meet physical reality. I am drawn to systems that must endure in operation.
 > I use software and machine learning to extend their capabilities as requirements change. Physical systems often have more to give than initial requirements assume. When requirements change, what else might evolve?
 I live in Dalby and can be available on short notice. I would welcome the opportunity to discuss how my background could support your team.
@@ -8,7 +8,7 @@ Kind regards,<br>**Joakim Pettersson**
 ---
 
 # Joakim Pettersson
-Senior Senior Embedded & Complex Systems Engineer – Energy, Connectivity & Automation
+Senior Embedded & Complex Systems Engineer – Energy, Connectivity & Automation
 📧 joakim.pettersson@join.se 📱 +46 708 29 99 74 🔗 [**linkedin.com/in/joakimbits**](https://www.linkedin.com/in/joakimbits/)
 # PROFILE
 - Engineering where software and electronics meet physical reality, structured through clear interfaces and modular design.
@@ -18,13 +18,13 @@ Senior Senior Embedded & Complex Systems Engineer – Energy, Connectivity & Aut
 **Platforms & Architectural Stack:**
 > ARM Cortex-M (STM32, NXP LPC, Nordic nRF52833) • ESP32 / ESP32-C3 • Intel x86 / Xeon (MMU, PMU & VT-x virtualization) • PowerPC 750 • FPGA (Xilinx Spartan-3E, Altera MAX) • Linux • FreeRTOS • Micropython • LabVIEW RT • Bare-metal & HAL-based design
 **Implementation:**
-> C/C++ • Python • ECAD (Altium, KiCad) • Instrumentation & measurement • Hardware-in-the-loop • EMC
+> C/C++ • Python • Applied modelling & simulation • ECAD (Altium, KiCad) • Instrumentation • Hardware-in-the-loop • EMC
 **Standards & compliance:**
 > BLE • Wi-Fi • 3GPP • GPS/GNSS • UDP/TCP-IP • CAN/J1939/CANopen • FCC • CE
 **System characteristics:**
-> Timing & determinism • Real-time control • Sensor systems • Low-power design • Embedded platforms • Test & validation • Diagnostics & condition-based updates • Manufacturing & field operation
+> Timing & determinism • Real-time control • Sensor systems & fusion • Low-power design • Risk-aware partitioning • Test & validation • Field diagnosis & condition-based updates • Manufacturing & operational deployment
 **Foundations:**
-> Mathematics • Physics • Chemistry • Complex systems • Algorithmic analysis • Machine learning • Cloud/mobile interaction • Business & team development
+> Applied mathematics • System modelling • Complex systems • Machine learning • Industrialisation & quality assurance
 # EXPERIENCE
 ### [Elonroad](https://www.elonroad.com/) (2025-02-10 - 2025-04-30) - Software Developer 
 > Hardware integration, driver implementations and software bring-ups within a SMT32 heterogenous-MCU software platform development team.
