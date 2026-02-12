@@ -40,11 +40,13 @@ Senior Embedded & Complex Systems Engineer – Energy, Connectivity & Automation
 - Delivered an adopted EMC audit report with corrective guidance using signal isolation, guarding and impedance-matched termination.
 > ***Technology:** Python • QCoDeS • EMC • Data acquisition • GPT-assisted reporting • System engineering*
 > → [**Report arbitrarily nested projects**](https://www.linkedin.com/in/joakimbits/overlay/1713959408590/single-media-viewer/)
-### [SiB Solutions](https://www.sibsolutions.com/) (2022-09-05 - 2023-09-30) - Technical lead 
-> When I joined, the EdgeTPU-based detector had become unreliable in production, mainly due to unstable detection of small but frequent objects, which required heavy post-processing and made the product laggy. The first step was to restore determinism in the training and build pipeline using structured Make-based dependency generation and reproducible training runs. That exposed a core imbalance: the most frequent object class had too few significant pixels and was effectively being de-focused by the training process. By rebalancing training attention toward those difficult but frequent objects, worst-case mAP improved from 30% to 35%.
-> That improvement was modest, but it confirmed the diagnosis. The real issue was pixel density. Small objects simply did not contain enough information to generalize reliably. I therefore redesigned the detection architecture into a two-stage “object-in-object” approach: first detect large parent objects, then crop and zoom each parent region before detecting the smaller objects inside. This increased effective pixel density by roughly an order of magnitude and reduced overfitting to noise. Worst-case mAP increased from 35% to 70%.
-> Finally, I refined the labelling and preprocessing to include each object’s natural surrounding context, improving class separability and reducing false double detections. That raised worst-case mAP further from 70% to 73%. The result was a detector that no longer required heavy post-processing, ran reliably in real time on a single Coral EdgeTPU (Raspberry Pi 4), and allowed smaller networks to be used, bringing the product back to market viability.
-> ***Technology:** TensorFlow, Python, Docker, Git, EdgeTPU, Cloud Computing, Distributed Control Systems, Embedded Firmware Development, GitHub Actions, Jenkins, Kafka, Machine Learning, Make, System Engineering*
+### [SiB Solutions](https://www.sibsolutions.com/) (2022 - 2023) - Technical lead 
+> EdgeTPU-based detector had become unreliable in production due to unstable small-object detection and heavy post-processing.
+- Made training reproducible (Make + CI) and reweighted training toward the frequent hard object class; worst-case mAP 30% → 35%.
+- With that baseline, split detection into parent-object detection + per-parent zoomed child detection; worst-case mAP 35% → 70%.
+- Once the two-stage detector stabilized, expanded small-object context to reduce residual false/double detections; worst-case mAP 70% → 73%.
+- This removed post-processing, which eliminated inference lag and thereby enabled real-time behaviour on EdgeTPU, making the required user experience possible.
+> ***Technology:** Python • TensorFlow/TFLite • EdgeTPU • Deterministic builds • CI/CD • ML architecture*
 > → [**Detect objects in objects (2023)**](https://www.linkedin.com/in/joakimbits/details/experience/1713969601372/single-media-viewer)
 ### [Fuel Cell Technology Sweden AB](https://www.fctsweden.se/) (2022-02-03 - 2022-06-30) - Senior Embedded Developer, freelance 
 > Worked in a small remote-office team together with CTO, lead software designer and lead electronics designer. Collaborated closely with and visited main office in Stockholm.
