@@ -55,14 +55,12 @@ Senior Embedded & Complex Systems Engineer – Energy, Connectivity & Automation
 - Following successful e-bike delivery, redesigned the production PCB to improve thermal dissipation and voltage reference stability, reduce duplication and free space for future stack-control features.
 > ***Technology:** C • FreeRTOS • ARM Cortex-M • Power electronics • EMI/EMC mitigation • PCB layout (Altium/KiCad) • Stack monitoring • Vehicle integration*
 > → [**Fuel Cell Stack Control**](https://www.linkedin.com/in/joakimbits/details/experience/1770911790048/single-media-viewer)
-### [Blodtrycksdoktorn](https://blodtrycksdoktorn.se/sa-fungerar-det/) (2021-12-01 - 2022-01-27) - Interoperability Audits, freelance
-> Blodtrycksdoktorn needed alternative blood-pressure sensor vendors to secure production capacity for a remote medical monitoring service. Switching vendor was not a commercial exercise; it was a clinical and regulatory risk. Devices had to: Fit mechanically into the existing workflow, Deliver accurate measurements under worst-case physiological conditions, Interoperate cleanly over BLE with an existing iOS application, And remain defensible under medical compliance scrutiny.
-> At the time, vendor documentation claimed BLE compliance and measurement accuracy — but there was limited internal confidence in those claims. I approached this as a systems problem.
-- First, I implemented full BLE profile integrations for each candidate device on iOS, exercising all relevant Bluetooth profiles in real workflows rather than relying on vendor SDK claims. This exposed subtle differences in profile interpretation and required workarounds.
-- Second, to evaluate measurement robustness, I built a compliance-oriented test rig using an artificial arm and programmable pulse generator. This allowed repeatable worst-case testing and objective comparison between devices — especially in edge conditions where measurement instability would undermine clinical trust.
-- With protocol behaviour and physical measurement validated, I documented vendor-specific deviations, compliance risks and required software adaptations. I then presented impact assessments to the sourcing engineer and leadership, linking technical deviations to production risk and long-term maintenance cost.
-- The outcome was not just a recommendation. Both the vendor choice and the BLE integrations were adopted. The physical test rig substantially increased internal confidence in the technical basis for the decision, reducing reliance on vendor claims and anecdotal testing.
-> ***Technology:** Medical device Software design, Audits, BLE, Bluetooth 5.0, End-to-End Testing, Failure Mode and Effects Analysis (FMEA), Kotlin, Medical device quality systems, Sensor Integration, Swift*
+### [Blodtrycksdoktorn](https://blodtrycksdoktorn.se/sa-fungerar-det/) (2021–2022) – Interoperability & Compliance Audit (freelance)
+> To secure alternative production capacity for a remote blood-pressure service, new BLE devices required verified interoperability and medical robustness.
+- Recommended candidate vendors, ordered samples and in parallel built a repeatable artificial arm + pulse test rig to enable rapid validation on arrival.
+- As devices arrived, implemented full BLE integrations on iOS and validated measurement performance under worst-case conditions.
+- Based on verified protocol and measurement data, documented sourcing impact; both the selected vendor and BLE integrations were adopted in production.
+> ***Technology:** BLE • iOS (Swift) • Sensor integration • Medical device validation • Compliance testing • FMEA*
 > → [**BLE Blood Pressure Sensor Vendor Qualification**](https://www.linkedin.com/in/joakimbits/details/experience/1770920978563/single-media-viewer)
 ### [deWiz](https://se.dewizgolf.com/) (2021-11-05 - 2021-12-16) - Sourcing Handover Audit, freelance
 > Worked with two mobile electronics development consultancies on root causes behind a much slower design project handover process than expected by the customer.
