@@ -100,10 +100,9 @@ Senior Embedded & Complex Systems Engineer – Energy, Connectivity & Automation
 - Additional electro-mechanical and control assignments for Haldex, Chemotech, Leuko3ena, Securitas Direct, IDEON Science Park, GeccoDots and NyUtveckling.
 > ***Technology:** C/C++ • ARM Cortex-M • MicroPython • PLC/ST • Python • LabVIEW • Control systems • Instrumentation • Thermal & fluid modelling • PCB design • FCC/CE certification • FPGA • System engineering*
 ### [Quflow & Perfeco](https://www.linkedin.com/company/quflow/) - Owner since 2010 
-> Independent systems-engineering and modelling platform focused on coupled physical systems, higher-dimensional field representations and computational exploration of complex dynamical structures.
-- Developed numerical modelling and optimisation frameworks in Python for analysing parameter sensitivity, deployment constraints and performance–cost trade-offs in low-power embedded systems.
-- On that foundation, invented and patented an integrated acoustic–fluid control architecture combining pressure regulation and air mass-flow control in ventilated environments (sound valve speaker).
-> ***Technology:** Complex systems • Coupled feedback loops • Low-power optimisation • System modelling • Architecture under constraints*
+> Systems engineering focused on coupled physical systems under real-world constraints.
+- Developed optimisation frameworks in Python for coupled and constrained physical systems.
+- On that foundation, invented and patented acoustic–fluid control architecture for ventilation systems.
 > → [**SE542440C2 – Sound valve speaker for regulating pressure (2020)**](https://joakimbits.github.io/cv/audio/sound-valve-speaker.html)
 ### [Ericsson Group](https://www.ericsson.com/en/about-us) (2000–2010) – Senior Systems Engineer, Lund / Stockholm / Montréal
 - Designed, simulated and verified Bluetooth radios and ASIC interfaces, then advanced from ad-hoc network performance (Bluetooth, Wi-Fi) through cellular performance (2G/3G) to product-level performance such as 911 location latency.
