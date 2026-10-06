@@ -18,6 +18,48 @@ Now it is up-to-date with any changes in the parent branch and also archived on 
 No storage space is needed for such rebases because the outdated similar (small) touch-ups will be purged automatically
 after a grace period.
 
+## Branch history and direct PDF generation
+
+View the branch history tree from this directory using the prototype in
+`../git/contrib/tree` on branch `log-with-branch-history-tree`.
+With the CV Python environment active and `typer` installed:
+
+```powershell
+python ..\git\contrib\tree\git-tree.py --decorate tree:on:box:supercompact log --all --oneline -- cover_and_cv.md
+```
+
+Filtering to `cover_and_cv.md` shows the CV variants with `main` at the
+root, excluding unrelated tooling history. Branch labels identify each
+branch's latest commit touching this file.
+`supercompact` hides intermediate commits, keeping branch tips, branch
+points, the root, and HEAD. Omit `-- cover_and_cv.md` for repository-wide
+history. Use `--tree` instead of
+`--decorate tree:on:box:supercompact` to show every commit.
+
+For Git's built-in summary of branch tips:
+
+```powershell
+git log --graph --all --decorate --oneline --simplify-by-decoration
+```
+
+Generate PDFs directly, without Word or LibreOffice:
+
+```
+python -m pdf
+```
+
+This reads `cover_and_cv.md` and writes `Joakim_Pettersson_Cover_Letter.pdf`
+and `Joakim_Pettersson_CV.pdf`. Headings are unnumbered, links are clickable,
+and pages use A4 with 25 mm side margins and 20 mm top/bottom margins.
+The renderer embeds its portable sans-serif font. PyMuPDF is already in
+`requirements.txt`; no word processor or additional package is needed.
+
+To choose a source or output directory:
+
+```
+python -m pdf cover_and_cv.md --output-dir output
+```
+
 ## OS preparation
 
 ### MacOS
